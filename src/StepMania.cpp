@@ -40,7 +40,7 @@
 #include "arch/Dialog/Dialog.h"
 #include "arch/LoadingWindow/LoadingWindow.h"
 
-#if !defined(SUPPORT_OPENGL) && !defined(SUPPORT_D3D)
+#if !defined(SUPPORT_OPENGL) && !defined(SUPPORT_D3D) && !defined(SUPPORT_GLES2)
 #define SUPPORT_OPENGL
 #endif
 
@@ -400,6 +400,18 @@ struct VideoCardDefaults {
     bSmoothLines = bSmoothLines_;
   }
 } const g_VideoCardDefaults[] = {
+#if defined(TVOS)
+    VideoCardDefaults(
+        "GLES2",     // Video card name (tvOS)
+        "gles2",     // Available renderers
+        1920, 1080,  // Default resolution
+        32,          // Display color
+        32,          // Texture color
+        32,          // Movie color
+        2048,        // Texture size
+        true         // Smooth lines
+        ),
+#endif
     // These lines correspond to the struct defined above.
     VideoCardDefaults(
         "OpenGL",   // Video card name (generic Mac/Linux)
@@ -424,7 +436,9 @@ struct VideoCardDefaults {
 };
 
 static std::string GetVideoDriverName() {
-#if defined(_WIN32)
+#if defined(TVOS)
+  return "GLES2";
+#elif defined(_WIN32)
   return GetPrimaryVideoDriverName();
 #else
   return "OpenGL";

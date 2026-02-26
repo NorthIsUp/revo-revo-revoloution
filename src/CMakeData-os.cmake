@@ -1,7 +1,24 @@
-list(APPEND SMDATA_OS_SRC "archutils/Common/HidDevice.cpp")
-list(APPEND SMDATA_OS_HPP "archutils/Common/HidDevice.h")
+if(NOT TVOS)
+  list(APPEND SMDATA_OS_SRC "archutils/Common/HidDevice.cpp")
+  list(APPEND SMDATA_OS_HPP "archutils/Common/HidDevice.h")
+endif()
 
-if(APPLE)
+if(TVOS)
+  list(APPEND SMDATA_OS_DARWIN_SRC
+              "archutils/Darwin/DarwinThreadHelpers.cpp"
+              "archutils/Darwin/SMMain_tvOS.mm")
+  list(APPEND SMDATA_OS_DARWIN_HPP
+              "archutils/Darwin/arch_setup_tvOS.h"
+              "archutils/Darwin/DarwinThreadHelpers.h")
+
+  source_group("OS Specific\\\\tvOS"
+               FILES
+               ${SMDATA_OS_DARWIN_SRC}
+               ${SMDATA_OS_DARWIN_HPP})
+
+  list(APPEND SMDATA_OS_SRC ${SMDATA_OS_DARWIN_SRC})
+  list(APPEND SMDATA_OS_HPP ${SMDATA_OS_DARWIN_HPP})
+elseif(APPLE)
   list(APPEND SMDATA_OS_DARWIN_SRC
               "archutils/Darwin/Crash.mm"
               "archutils/Darwin/CocoaEventDispatcher.mm"
@@ -119,7 +136,7 @@ else()
   source_group("OS Specific" FILES ${SMDATA_OS_SRC} ${SMDATA_OS_HPP})
 endif()
 
-if(APPLE OR LINUX)
+if((APPLE AND NOT TVOS) OR LINUX)
   if(WITH_CRASH_HANDLER)
     list(APPEND SMDATA_OS_UNIX_CRASH_SRC
                 "archutils/Unix/Backtrace.cpp"

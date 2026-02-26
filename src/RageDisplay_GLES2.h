@@ -20,6 +20,7 @@ class RageDisplay_GLES2 : public RageDisplay {
 
   bool BeginFrame();
   void EndFrame();
+  void BeginConcurrentRendering();
   ActualVideoModeParams GetActualVideoModeParams() const;
   void SetBlendMode(BlendMode mode);
   bool SupportsTextureFormat(RagePixelFormat pixfmt, bool realtime = false);

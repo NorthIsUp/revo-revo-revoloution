@@ -7,9 +7,14 @@
 
 #include <cstdint>
 
+#if defined(TVOS)
+#include <AudioToolbox/AudioToolbox.h>
+#include <mach/mach_time.h>
+#else
 #include <AudioToolbox/AudioServices.h>
 #include <CoreAudio/CoreAudio.h>
 #include <CoreServices/CoreServices.h>
+#endif
 
 REGISTER_SOUND_DRIVER_CLASS2("AudioUnit", AU);
 
@@ -35,6 +40,7 @@ RageSoundDriver_AU::RageSoundDriver_AU()
       m_pNotificationThread(nullptr),
       m_Semaphore("Sound") {}
 
+#if !defined(TVOS)
 static void SetSampleRate(AudioUnit au, Float64 desiredRate) {
   AudioDeviceID OutputDevice;
   OSStatus error;
@@ -102,12 +108,26 @@ static void SetSampleRate(AudioUnit au, Float64 desiredRate) {
     LOG->Warn("Couldn't set the device's sample rate: %s", FormatOSError(error));
   }
 }
+#endif
+
+#if defined(TVOS)
+static double GetHostTimeScale(Float64 sampleRate) {
+  mach_timebase_info_data_t info;
+  mach_timebase_info(&info);
+  double hostTicksPerSecond = 1e9 * (double)info.denom / (double)info.numer;
+  return sampleRate / hostTicksPerSecond;
+}
+#endif
 
 std::string RageSoundDriver_AU::Init() {
   AudioComponentDescription desc;
 
   desc.componentType = kAudioUnitType_Output;
+#if defined(TVOS)
+  desc.componentSubType = kAudioUnitSubType_RemoteIO;
+#else
   desc.componentSubType = kAudioUnitSubType_DefaultOutput;
+#endif
   desc.componentManufacturer = kAudioUnitManufacturer_Apple;
   desc.componentFlags = 0;
   desc.componentFlagsMask = 0;
@@ -152,10 +172,14 @@ std::string RageSoundDriver_AU::Init() {
     streamFormat.mSampleRate = FALLBACK_SAMPLE_RATE;
   }
   m_iSampleRate = int(streamFormat.mSampleRate);
+#if defined(TVOS)
+  m_TimeScale = GetHostTimeScale(streamFormat.mSampleRate);
+#else
   m_TimeScale = streamFormat.mSampleRate / AudioGetHostClockFrequency();
 
   // Try to set the hardware sample rate.
   SetSampleRate(m_OutputUnit, streamFormat.mSampleRate);
+#endif
 
   error = AudioUnitSetProperty(
       m_OutputUnit, kAudioUnitProperty_StreamFormat, kAudioUnitScope_Input, 0, &streamFormat,
@@ -201,7 +225,11 @@ RageSoundDriver_AU::~RageSoundDriver_AU() {
 }
 
 int64_t RageSoundDriver_AU::GetPosition() const {
+#if defined(TVOS)
+  return int64_t(m_TimeScale * mach_absolute_time());
+#else
   return int64_t(m_TimeScale * AudioGetCurrentHostTime());
+#endif
 }
 
 void RageSoundDriver_AU::SetupDecodingThread() {
@@ -213,6 +241,18 @@ void RageSoundDriver_AU::SetupDecodingThread() {
 }
 
 float RageSoundDriver_AU::GetPlayLatency() const {
+#if defined(TVOS)
+  Float64 outputLatency = 0;
+  UInt32 size = sizeof(outputLatency);
+  OSStatus error = AudioUnitGetProperty(
+      m_OutputUnit, kAudioUnitProperty_Latency, kAudioUnitScope_Global, 0,
+      &outputLatency, &size);
+  if (error != noErr) {
+    LOG->Warn("Couldn't get AU latency: %s", FormatOSError(error));
+    return 0.0f;
+  }
+  return float(outputLatency);
+#else
   OSStatus error;
   UInt32 bufferSize;
   AudioDeviceID OutputDevice;
@@ -311,6 +351,7 @@ float RageSoundDriver_AU::GetPlayLatency() const {
   } while (false);
 
   return float(bufferSize / sampleRate);
+#endif
 }
 
 OSStatus RageSoundDriver_AU::Render(
@@ -323,7 +364,11 @@ OSStatus RageSoundDriver_AU::Render(
   }
 
   AudioBuffer& buf = ioData->mBuffers[0];
+#if defined(TVOS)
+  int64_t now = int64_t(This->m_TimeScale * mach_absolute_time());
+#else
   int64_t now = int64_t(This->m_TimeScale * AudioGetCurrentHostTime());
+#endif
   int64_t next = int64_t(This->m_TimeScale * inTimeStamp->mHostTime);
 
   This->Mix((float*)buf.mData, inNumberFrames, next, now);

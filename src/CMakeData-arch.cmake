@@ -9,7 +9,7 @@ list(APPEND SMDATA_ARCH_THREADS_HPP "arch/Threads/Threads.h")
 if(WIN32)
   list(APPEND SMDATA_ARCH_THREADS_HPP "arch/Threads/Threads_Win32.h")
   list(APPEND SMDATA_ARCH_THREADS_SRC "arch/Threads/Threads_Win32.cpp")
-elseif(APPLE)
+elseif(APPLE OR TVOS)
   list(APPEND SMDATA_ARCH_THREADS_HPP "arch/Threads/Threads_Pthreads.h")
   list(APPEND SMDATA_ARCH_THREADS_SRC "arch/Threads/Threads_Pthreads.cpp")
 else()
@@ -43,6 +43,9 @@ if(WIN32)
               "arch/Sound/RageSoundDriver_DSound_Software.h"
               "arch/Sound/RageSoundDriver_WaveOut.h"
               "arch/Sound/RageSoundDriver_WDMKS.h")
+elseif(TVOS)
+  list(APPEND SMDATA_ARCH_SOUND_SRC "arch/Sound/RageSoundDriver_AU.mm")
+  list(APPEND SMDATA_ARCH_SOUND_HPP "arch/Sound/RageSoundDriver_AU.h")
 elseif(APPLE)
   list(APPEND SMDATA_ARCH_SOUND_SRC "arch/Sound/RageSoundDriver_AU.mm")
   list(APPEND SMDATA_ARCH_SOUND_HPP "arch/Sound/RageSoundDriver_AU.h")
@@ -107,6 +110,8 @@ if(WIN32)
               "arch/MemoryCard/MemoryCardDriverThreaded_Windows.cpp")
   list(APPEND SMDATA_ARCH_MEMORY_HPP
               "arch/MemoryCard/MemoryCardDriverThreaded_Windows.h")
+elseif(TVOS)
+  # tvOS has no external storage — use null/folder driver only
 elseif(APPLE)
   list(APPEND SMDATA_ARCH_MEMORY_SRC
               "arch/MemoryCard/MemoryCardDriverThreaded_MacOSX.cpp")
@@ -132,6 +137,11 @@ if(WIN32)
               "arch/LowLevelWindow/LowLevelWindow_Win32.cpp")
   list(APPEND SMDATA_ARCH_LOWLEVEL_HPP
               "arch/LowLevelWindow/LowLevelWindow_Win32.h")
+elseif(TVOS)
+  list(APPEND SMDATA_ARCH_LOWLEVEL_SRC
+              "arch/LowLevelWindow/LowLevelWindow_tvOS.mm")
+  list(APPEND SMDATA_ARCH_LOWLEVEL_HPP
+              "arch/LowLevelWindow/LowLevelWindow_tvOS.h")
 elseif(APPLE)
   list(APPEND SMDATA_ARCH_LOWLEVEL_SRC
               "arch/LowLevelWindow/LowLevelWindow_MacOSX.mm")
@@ -161,7 +171,9 @@ if(WIN32)
     APPEND SMDATA_ARCH_LOADING_HPP "arch/LoadingWindow/LoadingWindow_Win32.h")
 else()
   list(APPEND SMDATA_ARCH_LOADING_HPP "arch/LoadingWindow/LoadingWindow_Null.h")
-  if(APPLE)
+  if(TVOS)
+    # tvOS uses the null loading window
+  elseif(APPLE)
     list(APPEND SMDATA_ARCH_LOADING_SRC
                 "arch/LoadingWindow/LoadingWindow_MacOSX.mm")
     list(APPEND SMDATA_ARCH_LOADING_HPP
@@ -179,28 +191,33 @@ source_group("Arch Specific\\\\Loading Window"
 list(APPEND SMDATA_ARCH_LIGHTS_SRC "arch/Lights/LightsDriver.cpp"
             "arch/Lights/LightsDriver_Export.cpp"
             "arch/Lights/LightsDriver_SextetStream.cpp"
-            "arch/Lights/LightsDriver_SystemMessage.cpp"
-            "arch/Lights/LightsDriver_stac.cpp"
-            "arch/Lights/LightsDriver_stac2.cpp"
-            "arch/Lights/LightsDriver_snek.cpp"
-            "arch/Lights/LightsDriver_fusion.cpp"
-            "arch/Lights/LightsDriver_MinimaidHID.cpp"
-            "arch/Lights/LightsDriver_PacDrive.cpp"
-            "arch/Lights/LightsDriver_gpb.cpp"
-            "arch/Lights/LightsDriver_HidBlueDot.cpp")
+            "arch/Lights/LightsDriver_SystemMessage.cpp")
 list(APPEND SMDATA_ARCH_LIGHTS_HPP "arch/Lights/LightsDriver.h"
             "arch/Lights/LightsDriver_Export.h"
             "arch/Lights/LightsDriver_SextetStream.h"
             "arch/Lights/LightsDriver_SystemMessage.h"
-            "arch/Lights/SextetUtils.h"
-            "arch/Lights/LightsDriver_stac.h"
-            "arch/Lights/LightsDriver_stac2.h"
-            "arch/Lights/LightsDriver_snek.h"
-            "arch/Lights/LightsDriver_fusion.h"
-            "arch/Lights/LightsDriver_MinimaidHID.cpp"
-            "arch/Lights/LightsDriver_PacDrive.h"
-            "arch/Lights/LightsDriver_gpb.h"
-            "arch/Lights/LightsDriver_HidBlueDot.h")
+            "arch/Lights/SextetUtils.h")
+
+if(NOT TVOS)
+  list(APPEND SMDATA_ARCH_LIGHTS_SRC
+              "arch/Lights/LightsDriver_stac.cpp"
+              "arch/Lights/LightsDriver_stac2.cpp"
+              "arch/Lights/LightsDriver_snek.cpp"
+              "arch/Lights/LightsDriver_fusion.cpp"
+              "arch/Lights/LightsDriver_MinimaidHID.cpp"
+              "arch/Lights/LightsDriver_PacDrive.cpp"
+              "arch/Lights/LightsDriver_gpb.cpp"
+              "arch/Lights/LightsDriver_HidBlueDot.cpp")
+  list(APPEND SMDATA_ARCH_LIGHTS_HPP
+              "arch/Lights/LightsDriver_stac.h"
+              "arch/Lights/LightsDriver_stac2.h"
+              "arch/Lights/LightsDriver_snek.h"
+              "arch/Lights/LightsDriver_fusion.h"
+              "arch/Lights/LightsDriver_MinimaidHID.cpp"
+              "arch/Lights/LightsDriver_PacDrive.h"
+              "arch/Lights/LightsDriver_gpb.h"
+              "arch/Lights/LightsDriver_HidBlueDot.h")
+endif()
 
 # TODO: Confirm if Apple can use the export.
 if(NOT APPLE)
@@ -278,6 +295,11 @@ if(WIN32)
     list(APPEND SMDATA_ARCH_INPUT_HPP
                 "arch/InputHandler/InputHandler_SextetStream.h")
   endif()
+elseif(TVOS)
+  list(APPEND SMDATA_ARCH_INPUT_SRC
+              "arch/InputHandler/InputHandler_tvOS.mm")
+  list(APPEND SMDATA_ARCH_INPUT_HPP
+              "arch/InputHandler/InputHandler_tvOS.h")
 elseif(APPLE)
   list(APPEND SMDATA_ARCH_INPUT_SRC
               "arch/InputHandler/InputHandler_MacOSX_HID.mm"
@@ -319,6 +341,9 @@ list(APPEND SMDATA_ARCH_DIALOG_HPP "arch/Dialog/Dialog.h"
 if(WIN32)
   list(APPEND SMDATA_ARCH_DIALOG_SRC "arch/Dialog/DialogDriver_Win32.cpp")
   list(APPEND SMDATA_ARCH_DIALOG_HPP "arch/Dialog/DialogDriver_Win32.h")
+elseif(TVOS)
+  list(APPEND SMDATA_ARCH_DIALOG_SRC "arch/Dialog/DialogDriver_tvOS.mm")
+  list(APPEND SMDATA_ARCH_DIALOG_HPP "arch/Dialog/DialogDriver_tvOS.h")
 elseif(APPLE)
   list(APPEND SMDATA_ARCH_DIALOG_SRC "arch/Dialog/DialogDriver_MacOSX.cpp")
   list(APPEND SMDATA_ARCH_DIALOG_HPP "arch/Dialog/DialogDriver_MacOSX.h")
@@ -332,7 +357,10 @@ source_group("Arch Specific\\\\Dialog"
 list(APPEND SMDATA_ARCH_HOOKS_SRC "arch/ArchHooks/ArchHooks.cpp")
 list(APPEND SMDATA_ARCH_HOOKS_HPP "arch/ArchHooks/ArchHooks.h")
 
-if(NOT APPLE)
+if(TVOS)
+  list(APPEND SMDATA_ARCH_HOOKS_SRC "arch/ArchHooks/ArchHooks_tvOS.mm")
+  list(APPEND SMDATA_ARCH_HOOKS_HPP "arch/ArchHooks/ArchHooks_tvOS.h")
+elseif(NOT APPLE)
   list(APPEND SMDATA_ARCH_HOOKS_SRC "arch/ArchHooks/ArchHooksUtil.cpp")
   if(WIN32)
     list(APPEND SMDATA_ARCH_HOOKS_SRC "arch/ArchHooks/ArchHooks_Win32.cpp"
@@ -342,10 +370,10 @@ if(NOT APPLE)
     list(APPEND SMDATA_ARCH_HOOKS_SRC "arch/ArchHooks/ArchHooks_Unix.cpp")
     list(APPEND SMDATA_ARCH_HOOKS_HPP "arch/ArchHooks/ArchHooks_Unix.h")
   endif(WIN32)
-else(NOT APPLE)
+else()
   list(APPEND SMDATA_ARCH_HOOKS_SRC "arch/ArchHooks/ArchHooks_MacOSX.mm")
   list(APPEND SMDATA_ARCH_HOOKS_HPP "arch/ArchHooks/ArchHooks_MacOSX.h")
-endif(NOT APPLE)
+endif()
 
 source_group("Arch Specific\\\\Arch Hooks"
              FILES

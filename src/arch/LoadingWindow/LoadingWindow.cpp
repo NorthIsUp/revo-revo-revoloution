@@ -15,6 +15,9 @@ LoadingWindow* LoadingWindow::Create() {
   if (!PREFSMAN->m_bShowLoadingWindow) {
     return new LoadingWindow_Null;
   }
+#if defined(TVOS)
+  return new LoadingWindow_Null;
+#endif
 #if defined(UNIX) && !defined(HAVE_GTK)
   return new LoadingWindow_Null;
 #endif

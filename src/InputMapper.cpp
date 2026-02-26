@@ -119,6 +119,31 @@ void InputMapper::AddDefaultMappingsForCurrentGameIfUnmapped() {
 
 static const AutoMappings g_AutoMappings[] = {
     AutoMappings(
+        "dance", "Apple TV Remote", "Apple TV Siri Remote",
+        AutoMappingEntry(0, JOY_LEFT, GAME_BUTTON_MENULEFT, false),
+        AutoMappingEntry(0, JOY_RIGHT, GAME_BUTTON_MENURIGHT, false),
+        AutoMappingEntry(0, JOY_UP, GAME_BUTTON_MENUUP, false),
+        AutoMappingEntry(0, JOY_DOWN, GAME_BUTTON_MENUDOWN, false),
+        AutoMappingEntry(0, JOY_BUTTON_1, GAME_BUTTON_START, false),
+        AutoMappingEntry(0, JOY_BUTTON_3, GAME_BUTTON_SELECT, false),
+        AutoMappingEntry(0, JOY_BUTTON_9, GAME_BUTTON_BACK, false)),
+    AutoMappings(
+        "dance", "MFi Gamepad.*", "MFi Game Controller",
+        AutoMappingEntry(0, JOY_LEFT, GAME_BUTTON_MENULEFT, false),
+        AutoMappingEntry(0, JOY_RIGHT, GAME_BUTTON_MENURIGHT, false),
+        AutoMappingEntry(0, JOY_UP, GAME_BUTTON_MENUUP, false),
+        AutoMappingEntry(0, JOY_DOWN, GAME_BUTTON_MENUDOWN, false),
+        AutoMappingEntry(0, JOY_LEFT, DANCE_BUTTON_LEFT, false),
+        AutoMappingEntry(0, JOY_RIGHT, DANCE_BUTTON_RIGHT, false),
+        AutoMappingEntry(0, JOY_UP, DANCE_BUTTON_UP, false),
+        AutoMappingEntry(0, JOY_DOWN, DANCE_BUTTON_DOWN, false),
+        AutoMappingEntry(0, JOY_BUTTON_1, GAME_BUTTON_START, false),
+        AutoMappingEntry(0, JOY_BUTTON_2, GAME_BUTTON_BACK, false),
+        AutoMappingEntry(0, JOY_BUTTON_9, GAME_BUTTON_BACK, false),
+        AutoMappingEntry(0, JOY_BUTTON_10, GAME_BUTTON_COIN, false),
+        AutoMappingEntry(0, JOY_BUTTON_5, DANCE_BUTTON_UPLEFT, false),
+        AutoMappingEntry(0, JOY_BUTTON_6, DANCE_BUTTON_UPRIGHT, false)),
+    AutoMappings(
         "dance", "GIC USB Joystick", "Boom USB convertor (black/gray)",
         AutoMappingEntry(0, JOY_BUTTON_16, DANCE_BUTTON_LEFT, false),
         AutoMappingEntry(0, JOY_BUTTON_14, DANCE_BUTTON_RIGHT, false),

@@ -28,6 +28,26 @@ inline const std::vector<std::string>& GetDefaultSoundDriverList() {
   return soundDriverList;
 }
 
+#elif defined(TVOS)
+#include "ArchHooks/ArchHooks_tvOS.h"
+#include "LoadingWindow/LoadingWindow_Null.h"
+#include "LowLevelWindow/LowLevelWindow_tvOS.h"
+
+inline const std::vector<RString>& GetDefaultInputDriverList() {
+	static const std::vector<RString> inputDriverList = { "tvOS" };
+	return inputDriverList;
+}
+
+inline const std::vector<RString>& GetDefaultMovieDriverList() {
+	static const std::vector<RString> movieDriverList = { "FFMpeg", "Null" };
+	return movieDriverList;
+}
+
+inline const std::vector<RString>& GetDefaultSoundDriverList() {
+	static const std::vector<RString> soundDriverList = { "AudioUnit", "Null" };
+	return soundDriverList;
+}
+
 #elif defined(MACOSX)
 #include "ArchHooks/ArchHooks_MacOSX.h"
 #include "LoadingWindow/LoadingWindow_MacOSX.h"

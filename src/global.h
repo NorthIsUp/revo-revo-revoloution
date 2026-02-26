@@ -1,6 +1,14 @@
 #ifndef GLOBAL_H
 #define GLOBAL_H
 
+/* MacTypes.h defines 'typedef unsigned char Style' which conflicts with our Style class.
+ * Must be done before any include that may pull in MacTypes.h. */
+#if defined(TVOS)
+#define Style MacTypes_Style
+#include <MacTypes.h>
+#undef Style
+#endif
+
 #include <string>
 
 #if defined(_MSC_VER)
@@ -15,6 +23,8 @@
 /* Platform-specific fixes. */
 #if defined(_WIN32)
 #include "archutils/Win32/arch_setup.h"
+#elif defined(TVOS)
+#include "archutils/Darwin/arch_setup_tvOS.h"
 #elif defined(PBBUILD) || defined(MACOSX)
 #include "archutils/Darwin/arch_setup.h"
 #elif defined(UNIX)

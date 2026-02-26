@@ -404,6 +404,9 @@ static void ChangeToDirOfExecutable(const std::string& argv0) {
    */
 #if defined(_WINDOWS)
   if (_chdir((RageFileManagerUtil::sDirOfExecutable + "/..").c_str()))
+#elif defined(TVOS)
+  /* On tvOS, resources are in the app bundle root (same dir as the executable). */
+  if (chdir(RageFileManagerUtil::sDirOfExecutable.c_str()))
 #elif defined(UNIX)
   if (chdir((RageFileManagerUtil::sDirOfExecutable + "/").c_str()))
 #elif defined(MACOSX)
@@ -416,9 +419,10 @@ static void ChangeToDirOfExecutable(const std::string& argv0) {
   if (chdir(RageFileManagerUtil::sDirOfExecutable.c_str()))
 #endif
   {
-    LOG->Warn(
-        "Can't set current working directory to %s",
-        RageFileManagerUtil::sDirOfExecutable.c_str());
+    if (LOG)
+      LOG->Warn(
+          "Can't set current working directory to %s",
+          RageFileManagerUtil::sDirOfExecutable.c_str());
     return;
   }
 }

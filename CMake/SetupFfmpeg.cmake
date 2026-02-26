@@ -48,6 +48,26 @@ if(MACOSX)
   endif()
 endif()
 
+if(TVOS)
+  set(TVOS_SDK_NAME "${CMAKE_OSX_SYSROOT}")
+  execute_process(COMMAND xcrun --sdk ${TVOS_SDK_NAME} --show-sdk-path
+                  OUTPUT_VARIABLE TVOS_SDK_PATH
+                  OUTPUT_STRIP_TRAILING_WHITESPACE)
+  if(TVOS_SDK_NAME MATCHES "simulator")
+    set(TVOS_MIN_VERSION_FLAG "-mappletvsimulator-version-min=${CMAKE_OSX_DEPLOYMENT_TARGET}")
+  else()
+    set(TVOS_MIN_VERSION_FLAG "-mappletvos-version-min=${CMAKE_OSX_DEPLOYMENT_TARGET}")
+  endif()
+  list(APPEND FFMPEG_CONFIGURE "--enable-cross-compile"
+                               "--target-os=darwin"
+                               "--arch=arm64"
+                               "--enable-videotoolbox"
+                               "--sysroot=${TVOS_SDK_PATH}"
+                               "--extra-cflags=-arch arm64 ${TVOS_MIN_VERSION_FLAG}"
+                               "--extra-ldflags=-arch arm64 ${TVOS_MIN_VERSION_FLAG}")
+  list(APPEND FFMPEG_CONFIGURE "--cc=xcrun --sdk ${TVOS_SDK_NAME} clang")
+endif()
+
 if(NOT WITH_EXTERNAL_WARNINGS)
   list(APPEND FFMPEG_CONFIGURE "--extra-cflags=-w")
 endif()

@@ -46,12 +46,12 @@ list(APPEND SMDATA_ALL_FILES_HPP
             ${SMDATA_OS_HPP}
             ${SMDATA_FILE_TYPES_HPP})
 
-if(NOT APPLE)
+if(NOT APPLE AND NOT TVOS)
   list(APPEND SMDATA_ALL_FILES_SRC "Main.cpp")
   source_group("" FILES "Main.cpp")
 endif()
 
-if(MSVC OR APPLE)
+if(MSVC OR APPLE OR TVOS)
   set(SM_NAME_RELEASE "ITGmania")
   set(SM_NAME_DEBUG "ITGmania-debug")
   set(SM_NAME_MINSIZEREL "ITGmania-min-size")
@@ -63,7 +63,12 @@ else()
   set(SM_NAME_RELWITHDEBINFO "itgmania-release-symbols")
 endif()
 
-if(APPLE)
+if(TVOS)
+  add_executable("${SM_EXE_NAME}"
+                 MACOSX_BUNDLE
+                 ${SMDATA_ALL_FILES_SRC}
+                 ${SMDATA_ALL_FILES_HPP})
+elseif(APPLE)
   add_executable("${SM_EXE_NAME}"
                  MACOSX_BUNDLE
                  ${SMDATA_ALL_FILES_SRC}
@@ -133,7 +138,7 @@ if(WITH_SSE2)
     endif()
   elseif(CMAKE_SYSTEM_PROCESSOR MATCHES "x86")
     set(SM_COMPILE_FLAGS "${SM_COMPILE_FLAGS} -msse2")
-  elseif(CMAKE_SYSTEM_PROCESSOR MATCHES "aarch64")
+  elseif(CMAKE_SYSTEM_PROCESSOR MATCHES "aarch64" AND NOT TVOS)
     set(SM_COMPILE_FLAGS "${SM_COMPILE_FLAGS} -mtune=cortex-a72")
   else()
     message("Unrecognized host processor type")
@@ -184,6 +189,44 @@ if(WIN32)
         "${SM_PROGRAM_DIR}/$<$<CONFIG:DEBUG>:${SM_NAME_DEBUG}>$<$<CONFIG:MINSIZEREL>:${SM_NAME_MINSIZEREL}>$<$<CONFIG:RELWITHDEBINFO>:${SM_NAME_RELWITHDEBINFO}>$<$<CONFIG:RELEASE>:${SM_NAME_RELEASE}>.vdi"
       COMMENT "Generating file to allow for easier stack traces.")
   endif()
+elseif(TVOS)
+  target_compile_definitions("${SM_EXE_NAME}" PRIVATE TVOS)
+  target_compile_definitions("${SM_EXE_NAME}" PRIVATE CPU_AARCH64)
+  target_compile_definitions("${SM_EXE_NAME}" PRIVATE _XOPEN_SOURCE)
+  target_compile_definitions("${SM_EXE_NAME}" PRIVATE SUPPORT_GLES2)
+  set_target_properties(
+    "${SM_EXE_NAME}"
+    PROPERTIES
+      RUNTIME_OUTPUT_DIRECTORY
+      "${SM_ROOT_DIR}"
+      RUNTIME_OUTPUT_DIRECTORY_RELEASE
+      "${SM_ROOT_DIR}"
+      RUNTIME_OUTPUT_DIRECTORY_DEBUG
+      "${SM_ROOT_DIR}"
+      RUNTIME_OUTPUT_DIRECTORY_MINSIZEREL
+      "${SM_ROOT_DIR}"
+      RUNTIME_OUTPUT_DIRECTORY_RELWITHDEBINFO
+      "${SM_ROOT_DIR}"
+      MACOSX_BUNDLE_INFO_PLIST
+      "${SM_XCODE_DIR}/Info-tvOS.plist.in")
+
+  set(APPLE_BUNDLE_RESOURCES
+    "${SM_ROOT_DIR}/Announcers"
+    "${SM_ROOT_DIR}/BackgroundEffects"
+    "${SM_ROOT_DIR}/BackgroundTransitions"
+    "${SM_ROOT_DIR}/BGAnimations"
+    "${SM_ROOT_DIR}/Characters"
+    "${SM_ROOT_DIR}/Courses"
+    "${SM_ROOT_DIR}/Data"
+    "${SM_ROOT_DIR}/NoteSkins"
+    "${SM_ROOT_DIR}/Scripts"
+    "${SM_ROOT_DIR}/Songs"
+    "${SM_ROOT_DIR}/Themes"
+  )
+
+  target_sources("${SM_EXE_NAME}" PUBLIC ${APPLE_BUNDLE_RESOURCES})
+  set_source_files_properties(${APPLE_BUNDLE_RESOURCES} PROPERTIES MACOSX_PACKAGE_LOCATION Resources)
+
 elseif(APPLE)
   # TODO should we set CRASH_HANDLER and other things like LINUX does below? Why is that logic specfic to LINUX?
   # Use generic Unix backtrace for all Apple architectures
@@ -388,7 +431,6 @@ list(APPEND SMDATA_LINK_LIB "lua-5.1" "miniz")
 
 list(APPEND SMDATA_LINK_LIB "mad"
                             "pcre"
-                            "glew"
                             "tomcrypt"
                             "tommath"
                             "libjpeg-turbo"
@@ -398,8 +440,11 @@ list(APPEND SMDATA_LINK_LIB "mad"
                             "vorbisfile"
                             "vorbis"
                             "ogg"
-                            "ixwebsocket"
-							"hidapi")
+                            "ixwebsocket")
+
+if(NOT TVOS)
+  list(APPEND SMDATA_LINK_LIB "glew" "hidapi")
+endif()
 
 if(WIN32)
   list(APPEND SMDATA_LINK_LIB
@@ -432,6 +477,31 @@ if(WIN32)
   set_target_properties("${SM_EXE_NAME}"
                         PROPERTIES LINK_FLAGS_MINSIZEREL "/SUBSYSTEM:WINDOWS")
 
+elseif(TVOS)
+  list(INSERT SMDATA_LINK_LIB
+              0
+              ${MAC_FRAME_ACCELERATE}
+              ${MAC_FRAME_UIKIT}
+              ${MAC_FRAME_METAL}
+              ${MAC_FRAME_METALKIT}
+              ${MAC_FRAME_GAMECONTROLLER}
+              ${MAC_FRAME_OPENGLES}
+              ${MAC_FRAME_GLKIT}
+              ${MAC_FRAME_COREGRAPHICS}
+              ${MAC_FRAME_QUARTZCORE}
+              ${MAC_FRAME_COREFOUNDATION}
+              ${MAC_FRAME_AUDIOTOOLBOX}
+              ${MAC_FRAME_COREAUDIO}
+              ${MAC_FRAME_FOUNDATION}
+              ${MAC_FRAME_SYSTEM}
+              "${ICONV_LIBRARIES}"
+              "${SM_FFMPEG_LIB}/libavformat.a"
+              "${SM_FFMPEG_LIB}/libavcodec.a"
+              "${SM_FFMPEG_LIB}/libswscale.a"
+              "${SM_FFMPEG_LIB}/libavutil.a"
+              "${MAC_FRAME_COREMEDIA}"
+              "${MAC_FRAME_COREVIDEO}"
+              "${MAC_FRAME_VIDEOTOOLBOX}")
 elseif(APPLE)
   list(INSERT SMDATA_LINK_LIB
               0
@@ -509,7 +579,10 @@ target_link_libraries("${SM_EXE_NAME}" ${SMDATA_LINK_LIB})
 list(APPEND SM_INCLUDE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}
             "${SM_GENERATED_SRC_DIR}")
 
-if(APPLE)
+if(TVOS)
+  add_dependencies("${SM_EXE_NAME}" "ffmpeg")
+  list(APPEND SM_INCLUDE_DIRS "${SM_FFMPEG_INCLUDE}")
+elseif(APPLE)
   list(APPEND SM_INCLUDE_DIRS "archutils/Unix")
 
   add_dependencies("${SM_EXE_NAME}" "ffmpeg")

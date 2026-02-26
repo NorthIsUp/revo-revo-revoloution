@@ -8,8 +8,10 @@
 #include <cstdint>
 #include <string>
 
-#include "Backtrace.h"
 #include "global.h"
+#if !defined(TVOS)
+#include "Backtrace.h"
+#endif
 
 bool SuspendThread(uint64_t threadHandle) {
   return !thread_suspend(thread_act_t(threadHandle));
@@ -21,6 +23,7 @@ bool ResumeThread(uint64_t threadHandle) {
 
 uint64_t GetCurrentThreadId() { return mach_thread_self(); }
 
+#if !defined(TVOS)
 bool GetThreadBacktraceContext(uint64_t iID, BacktraceContext* ctx) {
   /* Can't GetThreadBacktraceContext the current thread. */
   ASSERT(iID != GetCurrentThreadId());
@@ -57,6 +60,7 @@ bool GetThreadBacktraceContext(uint64_t iID, BacktraceContext* ctx) {
   return false;
 #endif
 }
+#endif
 
 std::string SetThreadPrecedence(float prec) {
   // Real values are between 0 and 63.

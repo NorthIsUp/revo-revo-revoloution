@@ -1,7 +1,11 @@
+#include <string>
+
 #if defined(ANDROID)
 #include "Android/SpecialDirs.h"
 #elif defined(_WIN32)
 #include "Win32/SpecialDirs.h"
+#elif defined(TVOS)
+namespace SpecialDirs { inline std::string GetDesktopDir() { return ""; } }
 #elif defined(MACOSX)
 #include "Darwin/SpecialDirs.h"
 #elif defined(UNIX)

@@ -122,12 +122,14 @@ ThreadImpl* MakeThread(
   // Ensure there is always a terminating NUL character.
   thread->name[maxNameLen - 1] = '\0';
 
+#if !defined(TVOS)
 #ifndef MACOSX
   // macOS/BSD can only set the name of the calling thread
   ret = pthread_setname_np(thread->thread, thread->name);
   if (ret != 0 && LOG) {
     LOG->Trace("pthead_setname_np: %s", strerror(ret));
   }
+#endif
 #endif
 
   return thread;
