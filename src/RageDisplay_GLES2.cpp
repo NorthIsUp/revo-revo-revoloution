@@ -29,10 +29,13 @@ static GLint g_UniformMVP = -1;
 static GLint g_UniformTexMatrix = -1;
 static GLint g_UniformTexture = -1;
 static GLint g_UniformUseTexture = -1;
+static GLint g_UniformMaterialDiffuse = -1;
+static GLint g_UniformUseMaterial = -1;
 static GLint g_AttribPosition = -1;
 static GLint g_AttribColor = -1;
 static GLint g_AttribTexCoord = -1;
 static bool g_bTextureEnabled = false;
+static RageColor g_MaterialDiffuse( 1, 1, 1, 1 );
 
 static const char *g_VertexShader =
 	"attribute vec3 aPosition;\n"
@@ -54,11 +57,14 @@ static const char *g_FragmentShader =
 	"varying vec2 vTexCoord;\n"
 	"uniform sampler2D uTexture;\n"
 	"uniform int uUseTexture;\n"
+	"uniform int uUseMaterial;\n"
+	"uniform vec4 uMaterialDiffuse;\n"
 	"void main() {\n"
+	"    vec4 baseColor = (uUseMaterial != 0) ? uMaterialDiffuse : vColor;\n"
 	"    if (uUseTexture != 0) {\n"
-	"        gl_FragColor = vColor * texture2D(uTexture, vTexCoord);\n"
+	"        gl_FragColor = baseColor * texture2D(uTexture, vTexCoord);\n"
 	"    } else {\n"
-	"        gl_FragColor = vColor;\n"
+	"        gl_FragColor = baseColor;\n"
 	"    }\n"
 	"}\n";
 
@@ -107,6 +113,8 @@ static void InitShaders()
 	g_UniformTexMatrix = glGetUniformLocation( g_ShaderProgram, "uTexMatrix" );
 	g_UniformTexture = glGetUniformLocation( g_ShaderProgram, "uTexture" );
 	g_UniformUseTexture = glGetUniformLocation( g_ShaderProgram, "uUseTexture" );
+	g_UniformMaterialDiffuse = glGetUniformLocation( g_ShaderProgram, "uMaterialDiffuse" );
+	g_UniformUseMaterial = glGetUniformLocation( g_ShaderProgram, "uUseMaterial" );
 
 	glDeleteShader( vs );
 	glDeleteShader( fs );
@@ -592,16 +600,74 @@ public:
 
 	void Allocate( const std::vector<msMesh> &vMeshes )
 	{
-		// TODO
+		const unsigned int verticesCount = std::max<unsigned int>(1u, GetTotalVertices());
+		const unsigned int trianglesCount = std::max<unsigned int>(1u, GetTotalTriangles());
+
+		m_vPosition.resize( verticesCount );
+		m_vTexture.resize( verticesCount );
+		m_vNormal.resize( verticesCount );
+		m_vTexMatrixScale.resize( verticesCount );
+		m_vTriangles.resize( trianglesCount );
 	}
 	void Change( const std::vector<msMesh> &vMeshes )
 	{
-		// TODO
+		for( unsigned i = 0; i < vMeshes.size(); i++ )
+		{
+			const MeshInfo& meshInfo = m_vMeshInfo[i];
+			const msMesh& mesh = vMeshes[i];
+			const std::vector<RageModelVertex> &Vertices = mesh.Vertices;
+			const std::vector<msTriangle> &Triangles = mesh.Triangles;
+
+			for( unsigned j = 0; j < Vertices.size(); j++ )
+			{
+				m_vPosition[meshInfo.iVertexStart+j] = Vertices[j].p;
+				m_vTexture[meshInfo.iVertexStart+j] = Vertices[j].t;
+				m_vNormal[meshInfo.iVertexStart+j] = Vertices[j].n;
+				m_vTexMatrixScale[meshInfo.iVertexStart+j] = Vertices[j].TextureMatrixScale;
+			}
+
+			for( unsigned j = 0; j < Triangles.size(); j++ )
+				for( unsigned k = 0; k < 3; k++ )
+				{
+					int iVertexIndexInVBO = meshInfo.iVertexStart + Triangles[j].nVertexIndices[k];
+					m_vTriangles[meshInfo.iTriangleStart+j].nVertexIndices[k] = (uint16_t) iVertexIndexInVBO;
+				}
+		}
 	}
 	void Draw( int iMeshIndex ) const
 	{
-		// TOO
+		const MeshInfo& meshInfo = m_vMeshInfo[iMeshIndex];
+
+		glEnableVertexAttribArray( g_AttribPosition );
+		glVertexAttribPointer( g_AttribPosition, 3, GL_FLOAT, GL_FALSE, 0, &m_vPosition[0] );
+
+		glEnableVertexAttribArray( g_AttribTexCoord );
+		glVertexAttribPointer( g_AttribTexCoord, 2, GL_FLOAT, GL_FALSE, 0, &m_vTexture[0] );
+
+		if( g_AttribColor >= 0 )
+			glDisableVertexAttribArray( g_AttribColor );
+
+		glDrawElements(
+			GL_TRIANGLES,
+			meshInfo.iTriangleCount * 3,
+			GL_UNSIGNED_SHORT,
+			&m_vTriangles[0] + meshInfo.iTriangleStart );
+
+		glDisableVertexAttribArray( g_AttribPosition );
+		glDisableVertexAttribArray( g_AttribTexCoord );
 	}
+
+	bool NeedsTextureMatrixScale( int iMeshIndex ) const
+	{
+		return m_vMeshInfo[iMeshIndex].m_bNeedsTextureMatrixScale;
+	}
+
+protected:
+	std::vector<RageVector3> m_vPosition;
+	std::vector<RageVector2> m_vTexture;
+	std::vector<RageVector3> m_vNormal;
+	std::vector<msTriangle> m_vTriangles;
+	std::vector<RageVector2> m_vTexMatrixScale;
 };
 
 RageCompiledGeometry*
@@ -1039,7 +1105,7 @@ RageDisplay_GLES2::SetMaterial(
 	float shininess
 	)
 {
-	// TODO
+	g_MaterialDiffuse = diffuse;
 }
 
 void
@@ -1122,6 +1188,7 @@ static void SetupShaderAndDraw( GLenum mode, const RageSpriteVertex v[], int iNu
 
 	glUniform1i( g_UniformTexture, 0 );
 	glUniform1i( g_UniformUseTexture, g_bTextureEnabled ? 1 : 0 );
+	glUniform1i( g_UniformUseMaterial, 0 );
 
 	glEnableVertexAttribArray( g_AttribPosition );
 	glEnableVertexAttribArray( g_AttribColor );
@@ -1194,6 +1261,46 @@ void
 RageDisplay_GLES2::DrawCompiledGeometryInternal( const RageCompiledGeometry *p, int
 	iMeshIndex )
 {
+	if( !g_ShaderProgram )
+		return;
+
+	glUseProgram( g_ShaderProgram );
+
+	RageMatrix mvp;
+	RageMatrixMultiply( &mvp, GetViewTop(), GetWorldTop() );
+	RageMatrix tmp;
+	RageMatrixMultiply( &tmp, GetProjectionTop(), &mvp );
+	glUniformMatrix4fv( g_UniformMVP, 1, GL_FALSE, (const GLfloat *)&tmp );
+
+	const RageMatrix *tex = GetTextureTop();
+	const RageCompiledGeometryGLES2 *pGLES2 = static_cast<const RageCompiledGeometryGLES2 *>(p);
+	if( tex && pGLES2->NeedsTextureMatrixScale( iMeshIndex ) )
+	{
+		RageMatrix texNoTranslate = *tex;
+		texNoTranslate.m[3][0] = 0;
+		texNoTranslate.m[3][1] = 0;
+		texNoTranslate.m[3][2] = 0;
+		glUniformMatrix4fv( g_UniformTexMatrix, 1, GL_FALSE, (const GLfloat *)&texNoTranslate );
+	}
+	else if( tex )
+		glUniformMatrix4fv( g_UniformTexMatrix, 1, GL_FALSE, (const GLfloat *)tex );
+	else
+	{
+		RageMatrix identity;
+		RageMatrixIdentity( &identity );
+		glUniformMatrix4fv( g_UniformTexMatrix, 1, GL_FALSE, (const GLfloat *)&identity );
+	}
+
+	glUniform1i( g_UniformTexture, 0 );
+	glUniform1i( g_UniformUseTexture, g_bTextureEnabled ? 1 : 0 );
+	glUniform1i( g_UniformUseMaterial, 1 );
+	glUniform4f( g_UniformMaterialDiffuse, g_MaterialDiffuse.r, g_MaterialDiffuse.g,
+		g_MaterialDiffuse.b, g_MaterialDiffuse.a );
+
+	p->Draw( iMeshIndex );
+
+	glUniform1i( g_UniformUseMaterial, 0 );
+	glUseProgram( 0 );
 }
 
 void
