@@ -50,3 +50,6 @@
 	path = extern/hidapi
 	url = https://github.com/libusb/hidapi.git
 	shallow = true
+[submodule "extern/WebServerKit"]
+	path = extern/WebServerKit
+	url = https://github.com/TimOliver/WebServerKit

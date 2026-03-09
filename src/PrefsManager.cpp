@@ -299,7 +299,7 @@ PrefsManager::PrefsManager()
           "AdditionalFoldersReadOnly", "", nullptr, PreferenceType::Immutable),
       m_sAdditionalFoldersWritable(
           "AdditionalFoldersWritable", "", nullptr, PreferenceType::Immutable),
-      m_sDefaultTheme("DefaultTheme", "Simply Love"),
+      m_sDefaultTheme("DefaultTheme", "DDRA3"),
       m_sLastSeenVideoDriver("LastSeenVideoDriver", ""),
       m_sVideoRenderers(
           "VideoRenderers", ""),  // StepMania.cpp sets these on first run:

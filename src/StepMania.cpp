@@ -619,6 +619,8 @@ RageDisplay* CreateDisplay() {
   return pRet;
 }
 
+static bool g_bThemeResetFromSettings = false;
+
 static void SwitchToLastPlayedGame() {
   const Game* pGame = GAMEMAN->StringToGame(PREFSMAN->GetCurrentGame());
 
@@ -650,6 +652,17 @@ void StepMania::InitializeCurrentGame(const Game* g) {
 
   std::string sAnnouncer = PREFSMAN->m_sAnnouncer;
   std::string sTheme = PREFSMAN->m_sTheme;
+  // Apply system/app settings overrides (e.g. Settings.bundle on tvOS).
+  {
+    std::string resetFlag = HOOKS->GetAppSetting("ITGmaniaThemeReset");
+    if (!resetFlag.empty()) {
+      sTheme = PREFSMAN->m_sDefaultTheme.Get();
+      PREFSMAN->m_sTheme.Set(sTheme);
+      // one-shot: clear so toggle shows off again
+      HOOKS->SetAppSetting("ITGmaniaThemeReset", "");
+      g_bThemeResetFromSettings = true;
+    }
+  }
   std::string sGametype = GAMESTATE->GetCurrentGame()->m_szName;
   std::string sLanguage = PREFSMAN->m_sLanguage;
 
@@ -688,7 +701,31 @@ void StepMania::InitializeCurrentGame(const Game* g) {
 
   // it's OK to call these functions with names that don't exist.
   ANNOUNCER->SwitchAnnouncer(sAnnouncer);
-  THEME->SwitchThemeAndLanguage(sTheme, sLanguage, PREFSMAN->m_bPseudoLocalize);
+  try {
+    THEME->SwitchThemeAndLanguage(
+        sTheme, sLanguage, PREFSMAN->m_bPseudoLocalize);
+  } catch (...) {
+    // Theme failed to load (e.g. broken or missing). Reset to default so the
+    // user can recover.
+    LOG->Warn(
+        "Theme '%s' failed to load; resetting to default theme.",
+        sTheme.c_str());
+    std::string sFallback = PREFSMAN->m_sDefaultTheme.Get();
+    if (!THEME->IsThemeSelectable(sFallback)) {
+      std::vector<std::string> vs;
+      THEME->GetSelectableThemeNames(vs);
+      sFallback = vs.empty() ? SpecialFiles::BASE_THEME_NAME : vs[0];
+    }
+    PREFSMAN->m_sTheme.Set(sFallback);
+    PREFSMAN->SavePrefsToDisk();
+    THEME->SwitchThemeAndLanguage(
+        sFallback, sLanguage, PREFSMAN->m_bPseudoLocalize);
+  }
+
+  if (g_bThemeResetFromSettings) {
+    g_bThemeResetFromSettings = false;
+    Dialog::OK("Theme was reset to default.");
+  }
 
   // Set the input scheme for the new game, and load keymaps.
   if (INPUTMAPPER) {
@@ -814,6 +851,10 @@ int sm_main(int argc, char* argv[]) {
   // Set this up next. Do this early, since it's needed for
   // RageException::Throw.
   LOG = new RageLog;
+
+#if defined(TVOS)
+  HOOKS->StartUploadServer();
+#endif
 
   // Whew--we should be able to crash safely now!
 

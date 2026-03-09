@@ -315,6 +315,7 @@ void Font::Unload() {
 
   m_iCharToGlyph.clear();
   m_pDefault = nullptr;
+  ZERO(m_iCharToGlyphCache);
 
   /* Don't clear the refcount. We've unloaded, but that doesn't mean things
    * aren't still pointing to us. */

@@ -223,9 +223,22 @@ elseif(TVOS)
     "${SM_ROOT_DIR}/Songs"
     "${SM_ROOT_DIR}/Themes"
   )
+  # Optional: React upload UI (build with: cd src/arch/UploadServer/UploadUI && npm run build)
+  if(EXISTS "${SM_SRC_DIR}/arch/UploadServer/UploadUI/dist")
+    list(APPEND APPLE_BUNDLE_RESOURCES "${SM_SRC_DIR}/arch/UploadServer/UploadUI/dist")
+  endif()
+
+  # System Settings (Settings.bundle) for theme and other overrides; must be at app bundle root.
+  if(EXISTS "${SM_XCODE_DIR}/Settings.bundle")
+    list(APPEND APPLE_BUNDLE_RESOURCES "${SM_XCODE_DIR}/Settings.bundle")
+  endif()
 
   target_sources("${SM_EXE_NAME}" PUBLIC ${APPLE_BUNDLE_RESOURCES})
   set_source_files_properties(${APPLE_BUNDLE_RESOURCES} PROPERTIES MACOSX_PACKAGE_LOCATION Resources)
+  # Settings.bundle must appear at bundle root for the Settings app to find it.
+  if(EXISTS "${SM_XCODE_DIR}/Settings.bundle")
+    set_source_files_properties("${SM_XCODE_DIR}/Settings.bundle" PROPERTIES MACOSX_PACKAGE_LOCATION "")
+  endif()
 
 elseif(APPLE)
   # TODO should we set CRASH_HANDLER and other things like LINUX does below? Why is that logic specfic to LINUX?
@@ -492,6 +505,9 @@ elseif(TVOS)
               ${MAC_FRAME_COREFOUNDATION}
               ${MAC_FRAME_AUDIOTOOLBOX}
               ${MAC_FRAME_COREAUDIO}
+              ${MAC_FRAME_CFNETWORK}
+              ${MAC_FRAME_UNIFORMTYPEIDENTIFIERS}
+              ${MAC_FRAME_MOBILECORESERVICES}
               ${MAC_FRAME_FOUNDATION}
               ${MAC_FRAME_SYSTEM}
               "${ICONV_LIBRARIES}"
@@ -581,7 +597,7 @@ list(APPEND SM_INCLUDE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}
 
 if(TVOS)
   add_dependencies("${SM_EXE_NAME}" "ffmpeg")
-  list(APPEND SM_INCLUDE_DIRS "${SM_FFMPEG_INCLUDE}")
+  list(APPEND SM_INCLUDE_DIRS "${SM_FFMPEG_INCLUDE}" ${SMDATA_WEBSERVERKIT_INCLUDE_DIRS})
 elseif(APPLE)
   list(APPEND SM_INCLUDE_DIRS "archutils/Unix")
 

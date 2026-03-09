@@ -360,6 +360,20 @@ list(APPEND SMDATA_ARCH_HOOKS_HPP "arch/ArchHooks/ArchHooks.h")
 if(TVOS)
   list(APPEND SMDATA_ARCH_HOOKS_SRC "arch/ArchHooks/ArchHooks_tvOS.mm")
   list(APPEND SMDATA_ARCH_HOOKS_HPP "arch/ArchHooks/ArchHooks_tvOS.h")
+  # WebServerKit (embedded HTTP server for content upload) and UploadServer - tvOS only
+  set(WEBSERVERKIT_ROOT "${CMAKE_SOURCE_DIR}/extern/WebServerKit/Sources/GCDWebServer")
+  file(GLOB WEBSERVERKIT_M_SRCS
+    "${WEBSERVERKIT_ROOT}/Core/*.m"
+    "${WEBSERVERKIT_ROOT}/Requests/*.m"
+    "${WEBSERVERKIT_ROOT}/Responses/*.m")
+  list(APPEND SMDATA_ARCH_HOOKS_SRC ${WEBSERVERKIT_M_SRCS} "arch/UploadServer/UploadServer_tvOS.mm")
+  list(APPEND SMDATA_ARCH_HOOKS_HPP "arch/UploadServer/UploadServer_tvOS.h")
+  set_source_files_properties(${WEBSERVERKIT_M_SRCS} "arch/UploadServer/UploadServer_tvOS.mm"
+    PROPERTIES COMPILE_FLAGS "-fobjc-arc")
+  set(SMDATA_WEBSERVERKIT_INCLUDE_DIRS
+    "${WEBSERVERKIT_ROOT}/Core"
+    "${WEBSERVERKIT_ROOT}/Requests"
+    "${WEBSERVERKIT_ROOT}/Responses")
 elseif(NOT APPLE)
   list(APPEND SMDATA_ARCH_HOOKS_SRC "arch/ArchHooks/ArchHooksUtil.cpp")
   if(WIN32)

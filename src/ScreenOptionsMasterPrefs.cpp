@@ -301,6 +301,25 @@ static void RequestedTheme(
   }
 }
 
+static void ResetThemeToDefaultChoices(std::vector<std::string>& out) {
+  out.push_back("Reset to default theme");
+}
+
+static void ResetThemeToDefault(
+    int& sel, bool ToSel, const ConfOption* pConfOption) {
+  if (ToSel) {
+    sel = 0;
+  } else {
+    std::string sDefault = PREFSMAN->m_sDefaultTheme.Get();
+    if (!THEME->IsThemeSelectable(sDefault)) {
+      std::vector<std::string> vs;
+      THEME->GetSelectableThemeNames(vs);
+      sDefault = vs.empty() ? SpecialFiles::BASE_THEME_NAME : vs[0];
+    }
+    PREFSMAN->m_sTheme.Set(sDefault);
+  }
+}
+
 static LocalizedString OFF("ScreenOptionsMasterPrefs", "Off");
 static void AnnouncerChoices(std::vector<std::string>& out) {
   ANNOUNCER->GetAnnouncerNames(out);
@@ -769,6 +788,9 @@ static void InitializeConfOptions() {
   // Appearance options
   ADD(ConfOption("Language", Language, LanguageChoices));
   ADD(ConfOption("Theme", RequestedTheme, ThemeChoices));
+  g_ConfOptions.back().m_iEffects = OPT_APPLY_THEME;
+  ADD(ConfOption(
+      "ResetThemeToDefault", ResetThemeToDefault, ResetThemeToDefaultChoices));
   g_ConfOptions.back().m_iEffects = OPT_APPLY_THEME;
 
   ADD(ConfOption("Announcer", Announcer, AnnouncerChoices));

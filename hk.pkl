@@ -1,0 +1,60 @@
+amends "package://github.com/jdx/hk/releases/download/v1.36.0/hk@1.36.0#/Config.pkl"
+import "package://github.com/jdx/hk/releases/download/v1.36.0/hk@1.36.0#/Builtins.pkl"
+
+// Exclude vendored, build artifacts, and third-party content from all steps
+exclude = List(
+  "extern",
+  "build-tvos",
+  "build-tvos-sim",
+  "build-tvos.bak",
+  "build-tvos-sim.bak",
+  "node_modules",
+  "dist",
+  "*.app",
+  "*.dSYM",
+  "Themes",
+  "Xcode"
+)
+
+local linters = new Mapping<String, Step> {
+  ["shellcheck"] = (Builtins.shellcheck) {
+    // ShellCheck supports sh/bash only; mise_tasks use zsh
+    glob = List("*.sh")
+  }
+  ["prettier"] = (Builtins.prettier) {
+    // Limit to UploadUI and mise_tasks (Prettier does not support .toml/.pkl)
+    glob = List(
+      "src/arch/UploadServer/UploadUI/**/*.js",
+      "src/arch/UploadServer/UploadUI/**/*.ts",
+      "src/arch/UploadServer/UploadUI/**/*.tsx",
+      "src/arch/UploadServer/UploadUI/**/*.json",
+      "src/arch/UploadServer/UploadUI/**/*.html",
+      "src/arch/UploadServer/UploadUI/**/*.css",
+      "src/arch/UploadServer/UploadUI/**/*.md"
+    )
+  }
+  ["eslint"] {
+    dir = "src/arch/UploadServer/UploadUI"
+    glob = List("*.ts", "*.tsx")
+    check = "npx eslint {{files}}"
+    fix = "npx eslint --fix {{files}}"
+  }
+}
+
+hooks {
+  ["pre-commit"] {
+    fix = true
+    // stash = "git" can fail with submodules; run without stash or use HK_STASH=0
+    steps = linters
+  }
+  ["pre-push"] {
+    steps = linters
+  }
+  ["fix"] {
+    fix = true
+    steps = linters
+  }
+  ["check"] {
+    steps = linters
+  }
+}

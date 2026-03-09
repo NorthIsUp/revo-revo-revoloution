@@ -11,6 +11,9 @@ public:
 	void DumpDebugInfo();
 	RString GetPreferredLanguage();
 	float GetDisplayAspectRatio();
+	void StartUploadServer() override;
+	RString GetAppSetting( RString const &key ) const override;
+	void SetAppSetting( RString const &key, RString const &value ) override;
 };
 
 #ifdef ARCH_HOOKS

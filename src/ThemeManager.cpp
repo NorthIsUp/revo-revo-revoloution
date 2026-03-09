@@ -215,7 +215,15 @@ bool ThemeManager::IsThemeSelectable(const std::string& name) {
 }
 
 bool ThemeManager::IsThemeNameValid(const std::string& name) {
-  return Left(name, 1) != "_";
+  // Leading underscore is reserved (e.g. _fallback).
+  if (Left(name, 1) == "_") {
+    return false;
+  }
+  // Zip files are not supported as themes; they must be unpacked.
+  if (name.size() >= 4 && CompareNoCase(Right(name, 4), ".zip") == 0) {
+    return false;
+  }
+  return true;
 }
 
 std::string ThemeManager::GetThemeDisplayName(const std::string& sThemeName) {
@@ -329,6 +337,11 @@ void ThemeManager::LoadThemeMetrics(
           !bLoadedBase) {
         sFallback = SpecialFiles::BASE_THEME_NAME;
       }
+    }
+    // Older themes (StepMania 4 / ITG) used FallbackTheme=default; alias to
+    // _fallback so path resolution finds files.
+    if (CompareNoCase(sFallback, "default") == 0) {
+      sFallback = SpecialFiles::BASE_THEME_NAME;
     }
     /* We actually want to load themes bottom-to-top, loading fallback themes
      * first, so derived themes overwrite metrics in fallback themes. But, we

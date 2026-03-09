@@ -1,0 +1,9 @@
+#!/usr/bin/env zsh
+#MISE description="Run CMake to configure the tvOS simulator build"
+#MISE sources=["CMakeLists.txt", "StepmaniaCore.cmake", "CMake/**/*.cmake", "src/CMakeLists.txt", "src/CMakeData-*.cmake", "extern/CMakeLists.txt", "extern/CMakeProject-*.cmake"]
+#MISE outputs=["{{env.TVOS_BUILD_DIR}}/StepMania.xcodeproj/project.pbxproj"]
+set -euo pipefail
+
+cmake -B "$TVOS_BUILD_DIR" -G Xcode \
+    -DCMAKE_SYSTEM_NAME=tvOS \
+    -DCMAKE_OSX_SYSROOT=appletvsimulator

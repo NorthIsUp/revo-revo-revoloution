@@ -124,6 +124,26 @@ class ArchHooks {
   /** @brief Fetch the contents of the system clipboard. */
   virtual std::string GetClipboard();
 
+  /** @brief Start the web upload server (tvOS only; no-op on other platforms). */
+  virtual void StartUploadServer() {}
+
+  /**
+   * @brief Optional override for a preference from system/app settings (e.g. Settings.bundle on tvOS).
+   * Known keys: ITGmaniaThemeReset (toggle: reset theme on next launch).
+   * @param key Setting key. Use empty to mean "not set".
+   * @return Value if set, otherwise empty string.
+   */
+  virtual std::string GetAppSetting(std::string const& key) const {
+    (void)key;
+    return std::string();
+  }
+  /** Clear or set an app setting. No-op on platforms without app settings. */
+  virtual void SetAppSetting(
+      std::string const& key, std::string const& value) {
+    (void)key;
+    (void)value;
+  }
+
   // Lua
   void PushSelf(lua_State* L);
   void RegisterWithLua();

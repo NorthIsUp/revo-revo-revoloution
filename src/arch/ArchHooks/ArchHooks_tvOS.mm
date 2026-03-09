@@ -1,6 +1,7 @@
 #include "global.h"
 #include "ArchHooks_tvOS.h"
 #include "RageLog.h"
+#include "arch/UploadServer/UploadServer_tvOS.h"
 #include "RageUtil.h"
 #include "ProductInfo.h"
 #include "RageFileManager.h"
@@ -204,8 +205,18 @@ static std::string PathForDirectory( NSSearchPathDirectory directory )
 
 void ArchHooks::MountUserFilesystems( const RString &sDirOfExecutable )
 {
-	// tvOS has a sandboxed filesystem — use Documents and Caches directories
+	// tvOS has a sandboxed filesystem — use Documents and Caches directories.
+	// Create subdirs so uploads (which go here) are visible and writable.
+	NSFileManager *fm = [NSFileManager defaultManager];
 	std::string docsDir = PathForDirectory(NSDocumentDirectory);
+	NSString *docsNS = [NSString stringWithUTF8String:docsDir.c_str()];
+	NSArray<NSString *> *docSubdirs = @[
+		@"Save", @"Songs", @"Packages", @"NoteSkins", @"Themes", @"Courses", @"Downloads"
+	];
+	for (NSString *sub in docSubdirs) {
+		[fm createDirectoryAtPath:[docsNS stringByAppendingPathComponent:sub]
+		 withIntermediateDirectories:YES attributes:nil error:nil];
+	}
 	FILEMAN->Mount( "dir", docsDir + "/Save", "/Save" );
 	FILEMAN->Mount( "dir", docsDir + "/Songs", "/Songs" );
 	FILEMAN->Mount( "dir", docsDir + "/Packages", "/Packages" );
@@ -215,6 +226,12 @@ void ArchHooks::MountUserFilesystems( const RString &sDirOfExecutable )
 	FILEMAN->Mount( "dir", docsDir + "/Downloads", "/Downloads" );
 
 	std::string cachesDir = PathForDirectory(NSCachesDirectory);
+	NSString *cachesNS = [NSString stringWithUTF8String:cachesDir.c_str()];
+	NSArray<NSString *> *cacheSubdirs = @[ @"Cache", @"Logs", @"Screenshots" ];
+	for (NSString *sub in cacheSubdirs) {
+		[fm createDirectoryAtPath:[cachesNS stringByAppendingPathComponent:sub]
+		 withIntermediateDirectories:YES attributes:nil error:nil];
+	}
 	FILEMAN->Mount( "dir", cachesDir + "/Cache", "/Cache" );
 	FILEMAN->Mount( "dir", cachesDir + "/Logs", "/Logs" );
 	FILEMAN->Mount( "dir", cachesDir + "/Screenshots", "/Screenshots" );
@@ -225,4 +242,46 @@ float ArchHooks_tvOS::GetDisplayAspectRatio()
 	UIScreen *screen = [UIScreen mainScreen];
 	CGRect bounds = screen.bounds;
 	return bounds.size.width / bounds.size.height;
+}
+
+void ArchHooks_tvOS::StartUploadServer()
+{
+	std::string docsPath = PathForDirectory(NSDocumentDirectory);
+	UploadServer_Start(docsPath);
+}
+
+RString ArchHooks_tvOS::GetAppSetting( RString const &key ) const
+{
+	if( key.empty() )
+		return RString();
+	NSUserDefaults *defs = [NSUserDefaults standardUserDefaults];
+	NSString *nsKey = [NSString stringWithUTF8String:key.c_str()];
+	id obj = [defs objectForKey:nsKey];
+	// Toggle (PSToggleSwitchSpecifier) stores NSNumber boolean
+	if( [obj isKindOfClass:[NSNumber class]] )
+		return [obj boolValue] ? "1" : RString();
+	if( [obj isKindOfClass:[NSString class]] )
+	{
+		NSString *val = (NSString *)obj;
+		if( val.length == 0 )
+			return RString();
+		const char *utf8 = [val UTF8String];
+		if( utf8 == nullptr )
+			return RString();
+		return RString( utf8 );
+	}
+	return RString();
+}
+
+void ArchHooks_tvOS::SetAppSetting( RString const &key, RString const &value )
+{
+	if( key.empty() )
+		return;
+	NSUserDefaults *defs = [NSUserDefaults standardUserDefaults];
+	NSString *nsKey = [NSString stringWithUTF8String:key.c_str()];
+	if( value.empty() )
+		[defs removeObjectForKey:nsKey];
+	else
+		[defs setObject:[NSString stringWithUTF8String:value.c_str()] forKey:nsKey];
+	[defs synchronize];
 }

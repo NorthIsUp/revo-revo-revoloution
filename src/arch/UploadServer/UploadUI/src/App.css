@@ -1,0 +1,258 @@
+body {
+	font-family: system-ui, sans-serif;
+	margin: 1rem;
+}
+
+.global-progress-wrap {
+	width: 100%;
+	height: 0.4rem;
+	margin-bottom: 0.75rem;
+	background: rgba(0, 0, 0, 0.1);
+	border-radius: 0.2rem;
+	overflow: hidden;
+}
+
+.global-progress-wrap .upload-progress-bar {
+	height: 100%;
+}
+
+.tabs {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 0.5rem;
+}
+
+.tab {
+	border: 1px solid #ccc;
+	padding: 1rem;
+	min-width: 10rem;
+}
+
+.tab.active {
+	background: #e8f4fc;
+}
+
+.dropzone {
+	border: 2px dashed #999;
+	padding: 2rem;
+	margin: 0.5rem 0;
+	min-height: 5rem;
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	justify-content: center;
+	text-align: center;
+	transition:
+		border-color 0.15s,
+		background 0.15s;
+}
+
+.dropzone.drag-over {
+	border-color: #06c;
+	border-width: 3px;
+	background: #e0f0ff;
+}
+
+.dropzone.uploading {
+	border-color: #690;
+	background: #f0ffe0;
+}
+
+.dropzone.uploading .dropzone-text {
+	font-weight: bold;
+}
+
+.dropzone.done {
+	border-color: #060;
+	background: #e8f8e8;
+}
+
+.dropzone.error {
+	border-color: #c00;
+	background: #ffe8e8;
+}
+
+.upload-progress-wrap {
+	width: 100%;
+	max-width: 20rem;
+	height: 0.5rem;
+	margin-top: 0.5rem;
+	background: rgba(0, 0, 0, 0.1);
+	border-radius: 0.25rem;
+	overflow: hidden;
+}
+
+.upload-progress-bar {
+	height: 100%;
+	background: #06c;
+	border-radius: 0.25rem;
+	transition: width 0.15s ease-out;
+}
+
+.dropzone-status {
+	margin-top: 0.5rem;
+	font-size: 0.9em;
+}
+
+.overwrite-wrap {
+	margin: 1rem 0;
+}
+
+.overwrite-wrap .radio {
+	margin: 0.25rem 0;
+	display: block;
+}
+
+label.radio {
+	cursor: pointer;
+}
+
+/* File tree */
+.file-tree-wrap {
+	margin-top: 0.75rem;
+}
+
+.file-tree-actions {
+	margin-bottom: 0.5rem;
+}
+
+.file-tree-delete-all {
+	font-size: 0.85em;
+	padding: 0.35rem 0.6rem;
+	border: 1px solid #c66;
+	background: #fff;
+	color: #c00;
+	border-radius: 0.25rem;
+	cursor: pointer;
+}
+
+.file-tree-delete-all:hover:not(:disabled) {
+	background: #fee;
+}
+
+.file-tree-delete-all:disabled {
+	opacity: 0.7;
+	cursor: not-allowed;
+}
+
+.file-tree {
+	font-size: 0.85em;
+	max-height: 14rem;
+	overflow: auto;
+	border: 1px solid #ddd;
+	border-radius: 0.25rem;
+	padding: 0.5rem;
+	background: #fafafa;
+}
+
+.file-tree-loading,
+.file-tree-empty,
+.file-tree-error {
+	color: #666;
+	font-style: italic;
+}
+
+.file-tree-error {
+	color: #c00;
+	font-style: normal;
+}
+
+.file-tree-list {
+	list-style: none;
+	margin: 0;
+	padding: 0;
+	padding-left: calc(1.25rem * (var(--depth, 0)));
+}
+
+.file-tree-list-nested {
+	border-left: 1px solid rgba(0, 0, 0, 0.12);
+	margin-left: 0.35em;
+	padding-left: 0.75rem;
+}
+
+.file-tree-item {
+	margin: 0.15rem 0;
+	position: relative;
+}
+
+.file-tree-toggle {
+	display: inline-flex;
+	align-items: center;
+	gap: 0.25rem;
+	background: none;
+	border: none;
+	padding: 0.15rem 0;
+	cursor: pointer;
+	font: inherit;
+	color: inherit;
+	text-align: left;
+	width: 100%;
+}
+
+.file-tree-row {
+	display: flex;
+	align-items: center;
+	gap: 0.25rem;
+	width: 100%;
+	min-width: 0;
+}
+
+.file-tree-row .file-tree-toggle {
+	flex: 1;
+	min-width: 0;
+}
+
+.file-tree-delete {
+	flex-shrink: 0;
+	width: 1.5rem;
+	height: 1.5rem;
+	padding: 0;
+	border: none;
+	background: transparent;
+	color: #888;
+	cursor: pointer;
+	font-size: 0.9em;
+	line-height: 1;
+	border-radius: 0.2rem;
+}
+
+.file-tree-delete:hover:not(:disabled) {
+	background: rgba(200, 0, 0, 0.1);
+	color: #c00;
+}
+
+.file-tree-delete:disabled {
+	cursor: not-allowed;
+	opacity: 0.6;
+}
+
+.file-tree-toggle:hover {
+	background: rgba(0, 0, 0, 0.05);
+	border-radius: 0.2rem;
+}
+
+.file-tree-chevron {
+	display: inline-block;
+	width: 1em;
+	font-size: 0.7em;
+	color: #666;
+	flex-shrink: 0;
+}
+
+.file-tree-dir .file-tree-name {
+	font-weight: 600;
+}
+
+.file-tree-dir .file-tree-chevron {
+	color: #555;
+}
+
+.file-tree-file .file-tree-name {
+	color: #444;
+	font-weight: 400;
+}
+
+.file-tree-file .file-tree-chevron {
+	visibility: hidden;
+	width: 1em;
+}
