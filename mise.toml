@@ -1,6 +1,6 @@
 [env]
 TVOS_SIM_DEVICE = "Apple TV 4K (3rd generation)"
-TVOS_BUNDLE_ID  = "com.itgmania.tvos"
+TVOS_BUNDLE_ID  = "com.northisup.rererevoloution"
 TVOS_BUILD_DIR  = "build-tvos"
 TVOS_APP        = "ITGmania-debug.app"
 

@@ -9,7 +9,7 @@
     <key>CFBundleGetInfoString</key>
     <string>${SM_EXE_NAME} ${SM_VERSION_TRADITIONAL}</string>
     <key>CFBundleIdentifier</key>
-    <string>com.itgmania.tvos</string>
+    <string>com.northisup.rererevoloution</string>
     <key>CFBundleInfoDictionaryVersion</key>
     <string>6.0</string>
     <key>CFBundleName</key>
@@ -40,7 +40,7 @@
          app and on icloud.com, and allow other apps to open documents in place. -->
     <key>NSUbiquitousContainers</key>
     <dict>
-      <key>iCloud.com.itgmania.tvos</key>
+      <key>iCloud.com.northisup.rererevoloution</key>
       <dict>
         <key>NSUbiquitousContainerIsDocumentScopePublic</key>
         <true/>
