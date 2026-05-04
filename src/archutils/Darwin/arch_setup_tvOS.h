@@ -1,7 +1,7 @@
 #ifndef ARCH_SETUP_TVOS_H
 #define ARCH_SETUP_TVOS_H
 
-extern "C" int sm_main( int argc, char *argv[] );
+extern "C" int sm_main(int argc, char* argv[]);
 
 #define HAVE_CXA_DEMANGLE
 #define HAVE_DECL_SIGUSR1 1
@@ -14,7 +14,7 @@ extern "C" int sm_main( int argc, char *argv[] );
 #define CPU_AARCH64
 
 #ifndef TVOS
-# define TVOS
+#define TVOS
 #endif
 
 #endif

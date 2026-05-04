@@ -3,17 +3,16 @@
 
 #include "ArchHooks.h"
 
-class ArchHooks_tvOS : public ArchHooks
-{
-public:
-	void Init();
-	RString GetArchName() const;
-	void DumpDebugInfo();
-	RString GetPreferredLanguage();
-	float GetDisplayAspectRatio();
-	void StartUploadServer() override;
-	RString GetAppSetting( RString const &key ) const override;
-	void SetAppSetting( RString const &key, RString const &value ) override;
+class ArchHooks_tvOS : public ArchHooks {
+ public:
+  void Init();
+  std::string GetArchName() const;
+  void DumpDebugInfo();
+  std::string GetPreferredLanguage();
+  float GetDisplayAspectRatio();
+  void StartUploadServer() override;
+  std::string GetAppSetting(const std::string& key) const override;
+  void SetAppSetting(const std::string& key, const std::string& value) override;
 };
 
 #ifdef ARCH_HOOKS
