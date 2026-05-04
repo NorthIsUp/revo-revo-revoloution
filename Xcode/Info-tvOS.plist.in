@@ -36,5 +36,23 @@
     <string>Copyright 2001-2026</string>
     <key>UILaunchStoryboardName</key>
     <string></string>
+    <!-- iCloud Drive: expose the app's container Documents folder in the Files
+         app and on icloud.com, and allow other apps to open documents in place. -->
+    <key>NSUbiquitousContainers</key>
+    <dict>
+      <key>iCloud.com.itgmania.tvos</key>
+      <dict>
+        <key>NSUbiquitousContainerIsDocumentScopePublic</key>
+        <true/>
+        <key>NSUbiquitousContainerName</key>
+        <string>${SM_EXE_NAME}</string>
+        <key>NSUbiquitousContainerSupportedFolderLevels</key>
+        <string>Any</string>
+      </dict>
+    </dict>
+    <key>UIFileSharingEnabled</key>
+    <true/>
+    <key>LSSupportsOpeningDocumentsInPlace</key>
+    <true/>
   </dict>
 </plist>

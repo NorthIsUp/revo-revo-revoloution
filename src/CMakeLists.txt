@@ -208,7 +208,9 @@ elseif(TVOS)
       RUNTIME_OUTPUT_DIRECTORY_RELWITHDEBINFO
       "${SM_ROOT_DIR}"
       MACOSX_BUNDLE_INFO_PLIST
-      "${SM_XCODE_DIR}/Info-tvOS.plist.in")
+      "${SM_XCODE_DIR}/Info-tvOS.plist.in"
+      XCODE_ATTRIBUTE_CODE_SIGN_ENTITLEMENTS
+      "${SM_XCODE_DIR}/ITGmania-tvOS.entitlements")
 
   set(APPLE_BUNDLE_RESOURCES
     "${SM_ROOT_DIR}/Announcers"

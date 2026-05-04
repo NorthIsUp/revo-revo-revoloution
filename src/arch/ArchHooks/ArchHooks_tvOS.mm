@@ -191,11 +191,52 @@ static std::string PathForDirectory(NSSearchPathDirectory directory) {
   return [url fileSystemRepresentation];
 }
 
+// Returns the iCloud Drive Documents path for this app, or empty string if
+// iCloud is unavailable (no account, container not provisioned, or sync
+// disabled). The returned path is the user-visible "Documents" subfolder of
+// the app's ubiquity container, which is what NSUbiquitousContainerIsDocumentScopePublic
+// exposes via the Files app and icloud.com.
+static std::string PathForICloudDocuments() {
+  NSFileManager* fm = [NSFileManager defaultManager];
+  // Pass nil to use the first container identifier listed in the app's
+  // entitlements (com.apple.developer.ubiquity-container-identifiers).
+  NSURL* containerURL = [fm URLForUbiquityContainerIdentifier:nil];
+  if (containerURL == nil) {
+    return std::string();
+  }
+  NSURL* docsURL = [containerURL URLByAppendingPathComponent:@"Documents"];
+  [fm createDirectoryAtURL:docsURL withIntermediateDirectories:YES attributes:nil error:nil];
+  return [docsURL fileSystemRepresentation];
+}
+
 void ArchHooks::MountUserFilesystems(const std::string& sDirOfExecutable) {
   // tvOS has a sandboxed filesystem — use Documents and Caches directories.
   // Create subdirs so uploads (which go here) are visible and writable.
   NSFileManager* fm = [NSFileManager defaultManager];
-  std::string docsDir = PathForDirectory(NSDocumentDirectory);
+
+  // Prefer iCloud Drive Documents when the container is provisioned and the
+  // user has iCloud enabled (controlled by app setting "ITGmaniaUseICloud",
+  // default-on). Falls back to the local sandbox Documents otherwise. iCloud
+  // Documents is exposed to the user via the Files app + icloud.com because
+  // Info-tvOS.plist sets NSUbiquitousContainerIsDocumentScopePublic.
+  std::string docsDir;
+  bool usingICloud = false;
+  {
+    NSUserDefaults* defs = [NSUserDefaults standardUserDefaults];
+    id useICloud = [defs objectForKey:@"ITGmaniaUseICloud"];
+    bool wantICloud = (useICloud == nil) || [useICloud boolValue];
+    if (wantICloud) {
+      std::string icloudDocs = PathForICloudDocuments();
+      if (!icloudDocs.empty()) {
+        docsDir = icloudDocs;
+        usingICloud = true;
+      }
+    }
+  }
+  if (docsDir.empty()) {
+    docsDir = PathForDirectory(NSDocumentDirectory);
+  }
+
   NSString* docsNS = [NSString stringWithUTF8String:docsDir.c_str()];
   NSArray<NSString*>* docSubdirs =
       @[ @"Save", @"Songs", @"Packages", @"NoteSkins", @"Themes", @"Courses", @"Downloads" ];
@@ -204,6 +245,11 @@ void ArchHooks::MountUserFilesystems(const std::string& sDirOfExecutable) {
         withIntermediateDirectories:YES
                          attributes:nil
                               error:nil];
+  }
+  if (LOG) {
+    LOG->Info(
+        "User Documents root: %s (%s)", docsDir.c_str(),
+        usingICloud ? "iCloud Drive" : "local sandbox");
   }
   FILEMAN->Mount("dir", docsDir + "/Save", "/Save");
   FILEMAN->Mount("dir", docsDir + "/Songs", "/Songs");
@@ -234,7 +280,18 @@ float ArchHooks_tvOS::GetDisplayAspectRatio() {
 }
 
 void ArchHooks_tvOS::StartUploadServer() {
-  std::string docsPath = PathForDirectory(NSDocumentDirectory);
+  // Match MountUserFilesystems: serve iCloud Drive Documents if available so
+  // uploads land in the same root the game reads from.
+  std::string docsPath;
+  NSUserDefaults* defs = [NSUserDefaults standardUserDefaults];
+  id useICloud = [defs objectForKey:@"ITGmaniaUseICloud"];
+  bool wantICloud = (useICloud == nil) || [useICloud boolValue];
+  if (wantICloud) {
+    docsPath = PathForICloudDocuments();
+  }
+  if (docsPath.empty()) {
+    docsPath = PathForDirectory(NSDocumentDirectory);
+  }
   UploadServer_Start(docsPath);
 }
 
