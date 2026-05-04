@@ -246,11 +246,11 @@ void ArchHooks::MountUserFilesystems(const std::string& sDirOfExecutable) {
                          attributes:nil
                               error:nil];
   }
-  if (LOG) {
-    LOG->Info(
-        "User Documents root: %s (%s)", docsDir.c_str(),
-        usingICloud ? "iCloud Drive" : "local sandbox");
-  }
+  // MountUserFilesystems runs before LOG is initialized, so use NSLog so
+  // this is still visible (in os_log / `xcrun simctl spawn booted log stream`).
+  NSLog(
+      @"[RRRevoloution] User Documents root: %s (%s)", docsDir.c_str(),
+      usingICloud ? "iCloud Drive" : "local sandbox");
   FILEMAN->Mount("dir", docsDir + "/Save", "/Save");
   FILEMAN->Mount("dir", docsDir + "/Songs", "/Songs");
   FILEMAN->Mount("dir", docsDir + "/Packages", "/Packages");
