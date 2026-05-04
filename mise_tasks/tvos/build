@@ -1,8 +1,8 @@
 #!/usr/bin/env zsh
-#MISE description="Build ITGmania for tvOS simulator"
+#MISE description="Build RRRevoloution for tvOS simulator"
 #MISE depends=["tvos:configure"]
 #MISE sources=["src/**/*", "extern/**/*"]
-#MISE outputs=["{{env.TVOS_APP}}/ITGmania-debug"]
+#MISE outputs=["{{env.TVOS_APP}}/RRRevoloution-debug"]
 set -euo pipefail
 SIM_ID=$(xcrun simctl list devices available | grep "$TVOS_SIM_DEVICE" | head -1 | grep -oE '[0-9A-F-]{36}')
 if [ -z "$SIM_ID" ]; then
@@ -10,6 +10,6 @@ if [ -z "$SIM_ID" ]; then
   exit 1
 fi
 xcodebuild -project "$TVOS_BUILD_DIR/StepMania.xcodeproj" \
-  -scheme ITGmania \
+  -scheme RRRevoloution \
   -destination "platform=tvOS Simulator,id=$SIM_ID" \
   build

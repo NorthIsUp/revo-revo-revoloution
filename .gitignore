@@ -109,3 +109,4 @@ BuildLog.htm
 *.dSYM/
 build-tvos/
 build-tvos-sim/
+.mise.local.toml

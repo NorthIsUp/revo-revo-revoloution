@@ -20,7 +20,7 @@ set(SM_GENERATED_DIR "${PROJECT_BINARY_DIR}/generated")
 set(SM_GENERATED_SRC_DIR "${SM_GENERATED_DIR}/src")
 
 # TODO: Reconsile the OS dependent naming scheme.
-set(SM_EXE_NAME "ITGmania")
+set(SM_EXE_NAME "RRRevoloution")
 
 # Some OS specific helpers.
 if(CMAKE_SYSTEM_NAME MATCHES "Linux")

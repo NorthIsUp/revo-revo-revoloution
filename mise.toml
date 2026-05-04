@@ -2,7 +2,13 @@
 TVOS_SIM_DEVICE = "Apple TV 4K (3rd generation)"
 TVOS_BUNDLE_ID  = "com.northisup.rererevoloution"
 TVOS_BUILD_DIR  = "build-tvos"
-TVOS_APP        = "ITGmania-debug.app"
+TVOS_APP        = "RRRevoloution-debug.app"
+# Apple Developer team ID (10 chars) — must be set per-machine via shell
+# env or .mise.local.toml so that signed builds get a real provisioning
+# profile + iCloud entitlements. Without it, builds fall back to "Sign to
+# Run Locally" and iCloud is disabled at runtime.
+#   export TVOS_DEV_TEAM=XXXXXXXXXX
+# CMake reads this via $ENV{TVOS_DEV_TEAM}.
 
 [task_config]
 includes = ["mise_tasks"]

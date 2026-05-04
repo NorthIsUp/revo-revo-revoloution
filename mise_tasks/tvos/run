@@ -1,5 +1,5 @@
 #!/usr/bin/env zsh
-#MISE description="Install and launch ITGmania on tvOS simulator"
+#MISE description="Install and launch RRRevoloution on tvOS simulator"
 #MISE depends=["tvos:build"]
 #MISE alias="tvos:sim"
 set -euo pipefail

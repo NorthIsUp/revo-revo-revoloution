@@ -4,7 +4,7 @@ set -euo pipefail
 
 if [ -d "$TVOS_BUILD_DIR" ]; then
   xcodebuild -project "$TVOS_BUILD_DIR/StepMania.xcodeproj" \
-    -scheme ITGmania \
+    -scheme RRRevoloution \
     clean 2>/dev/null || true
 fi
 rm -rf "$TVOS_BUILD_DIR"

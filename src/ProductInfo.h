@@ -4,7 +4,7 @@
 /**
  * @brief A friendly string to refer to the product in crash dialogs, etc.
  */
-#define PRODUCT_FAMILY_BARE ITGmania
+#define PRODUCT_FAMILY_BARE RRRevoloution
 
 /**
  * @brief A unique name for each application that you might want installed
@@ -13,7 +13,7 @@
  * As an example, use "StepMania4" here, not "StepMania".
  * It would cause a conflict with older versions such as StepMania 3.X.
  */
-#define PRODUCT_ID_BARE ITGmania
+#define PRODUCT_ID_BARE RRRevoloution
 
 // These cannot be #undef'd so make them unlikely to conflict with anything
 #define PRODUCT_STRINGIFY(x) #x

@@ -88,7 +88,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          APP_PATH="ITGmania-debug.app"
+          APP_PATH="RRRevoloution-debug.app"
           if [ ! -d "$APP_PATH" ]; then
             echo "Expected app bundle at $APP_PATH but it does not exist."
             ls -la
@@ -96,7 +96,7 @@ jobs:
           fi
           VERSION="${{ steps.version.outputs.version }}"
           [ -z "$VERSION" ] && VERSION="dev"
-          OUT="ITGmania-tvOS-${VERSION}-${GITHUB_SHA::7}.zip"
+          OUT="RRRevoloution-tvOS-${VERSION}-${GITHUB_SHA::7}.zip"
           # ditto preserves bundle structure / symlinks correctly for .app bundles
           ditto -c -k --sequesterRsrc --keepParent "$APP_PATH" "$OUT"
           echo "artifact=$OUT" >> "$GITHUB_OUTPUT"
@@ -104,7 +104,7 @@ jobs:
       - name: Upload artifact
         uses: actions/upload-artifact@v7
         with:
-          name: ITGmania-tvOS-${{ steps.version.outputs.version || 'dev' }}-${{ github.sha }}
+          name: RRRevoloution-tvOS-${{ steps.version.outputs.version || 'dev' }}-${{ github.sha }}
           path: ${{ steps.package.outputs.artifact }}
           archive: false
 
@@ -123,7 +123,7 @@ jobs:
       - name: Download build artifact
         uses: actions/download-artifact@v6
         with:
-          name: ITGmania-tvOS-${{ needs.build.outputs.version }}-${{ github.sha }}
+          name: RRRevoloution-tvOS-${{ needs.build.outputs.version }}-${{ github.sha }}
           path: ./dist
 
       - name: Create GitHub Release
@@ -133,7 +133,7 @@ jobs:
         run: |
           set -euo pipefail
           TAG="tvos-v${VERSION}"
-          TITLE="ITGmania tvOS v${VERSION}"
+          TITLE="RRRevoloution tvOS v${VERSION}"
           # Idempotent: if the tag/release already exists, just upload assets.
           if gh release view "$TAG" >/dev/null 2>&1; then
             echo "Release $TAG already exists, uploading additional assets."

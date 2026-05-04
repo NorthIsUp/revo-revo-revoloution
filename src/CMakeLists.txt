@@ -52,15 +52,16 @@ if(NOT APPLE AND NOT TVOS)
 endif()
 
 if(MSVC OR APPLE OR TVOS)
-  set(SM_NAME_RELEASE "ITGmania")
-  set(SM_NAME_DEBUG "ITGmania-debug")
-  set(SM_NAME_MINSIZEREL "ITGmania-min-size")
-  set(SM_NAME_RELWITHDEBINFO "ITGmania-release-symbols")
+  set(SM_NAME_RELEASE "${SM_EXE_NAME}")
+  set(SM_NAME_DEBUG "${SM_EXE_NAME}-debug")
+  set(SM_NAME_MINSIZEREL "${SM_EXE_NAME}-min-size")
+  set(SM_NAME_RELWITHDEBINFO "${SM_EXE_NAME}-release-symbols")
 else()
-  set(SM_NAME_RELEASE "itgmania")
-  set(SM_NAME_DEBUG "itgmania-debug")
-  set(SM_NAME_MINSIZEREL "itgmania-min-size")
-  set(SM_NAME_RELWITHDEBINFO "itgmania-release-symbols")
+  string(TOLOWER "${SM_EXE_NAME}" SM_EXE_NAME_LOWER)
+  set(SM_NAME_RELEASE "${SM_EXE_NAME_LOWER}")
+  set(SM_NAME_DEBUG "${SM_EXE_NAME_LOWER}-debug")
+  set(SM_NAME_MINSIZEREL "${SM_EXE_NAME_LOWER}-min-size")
+  set(SM_NAME_RELWITHDEBINFO "${SM_EXE_NAME_LOWER}-release-symbols")
 endif()
 
 if(TVOS)
@@ -210,7 +211,15 @@ elseif(TVOS)
       MACOSX_BUNDLE_INFO_PLIST
       "${SM_XCODE_DIR}/Info-tvOS.plist.in"
       XCODE_ATTRIBUTE_CODE_SIGN_ENTITLEMENTS
-      "${SM_XCODE_DIR}/ITGmania-tvOS.entitlements")
+      "${SM_XCODE_DIR}/RRRevoloution-tvOS.entitlements"
+      XCODE_ATTRIBUTE_PRODUCT_BUNDLE_IDENTIFIER
+      "com.northisup.rererevoloution"
+      XCODE_ATTRIBUTE_CODE_SIGN_STYLE
+      "Automatic"
+      XCODE_ATTRIBUTE_DEVELOPMENT_TEAM
+      "$ENV{TVOS_DEV_TEAM}"
+      XCODE_ATTRIBUTE_TARGETED_DEVICE_FAMILY
+      "3")
 
   set(APPLE_BUNDLE_RESOURCES
     "${SM_ROOT_DIR}/Announcers"
