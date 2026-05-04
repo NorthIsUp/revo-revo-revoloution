@@ -1,0 +1,147 @@
+name: tvOS
+
+on:
+  push:
+    branches:
+      - apple-tv
+  pull_request:
+    branches:
+      - apple-tv
+    paths-ignore:
+      - '**.md'
+
+jobs:
+  build:
+    name: tvOS Simulator (Apple Silicon)
+    runs-on: macos-15
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+      version_changed: ${{ steps.version.outputs.changed }}
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          submodules: recursive
+          # Need parent commit so we can diff CMake/SMDefs.cmake to detect
+          # version bumps.
+          fetch-depth: 2
+
+      - name: Install build dependencies
+        run: brew install nasm mise
+
+      - name: Select Xcode
+        run: sudo xcode-select -s /Applications/Xcode.app
+
+      - name: Trust mise config
+        run: mise trust --yes
+        env:
+          MISE_YES: "1"
+
+      - name: Read version from CMake/SMDefs.cmake
+        id: version
+        shell: bash
+        run: |
+          set -euo pipefail
+          extract_version() {
+            local ref="$1"
+            local content
+            if [ "$ref" = "WORKTREE" ]; then
+              content=$(cat CMake/SMDefs.cmake)
+            else
+              content=$(git show "$ref":CMake/SMDefs.cmake 2>/dev/null || echo "")
+            fi
+            local major minor patch
+            major=$(printf '%s\n' "$content" | grep -E '^set\(SM_VERSION_MAJOR' | grep -oE '[0-9]+' || true)
+            minor=$(printf '%s\n' "$content" | grep -E '^set\(SM_VERSION_MINOR' | grep -oE '[0-9]+' || true)
+            patch=$(printf '%s\n' "$content" | grep -E '^set\(SM_VERSION_PATCH' | grep -oE '[0-9]+' || true)
+            if [ -z "$major" ] || [ -z "$minor" ] || [ -z "$patch" ]; then
+              echo ""
+            else
+              echo "${major}.${minor}.${patch}"
+            fi
+          }
+
+          current=$(extract_version WORKTREE)
+          echo "Current version: $current"
+          echo "version=$current" >> "$GITHUB_OUTPUT"
+
+          changed=false
+          if [ "${{ github.event_name }}" = "push" ] && [ "${{ github.ref_name }}" = "apple-tv" ]; then
+            previous=$(extract_version "HEAD^") || previous=""
+            echo "Previous version: $previous"
+            if [ -n "$current" ] && [ "$current" != "$previous" ]; then
+              changed=true
+            fi
+          fi
+          echo "Version changed: $changed"
+          echo "changed=$changed" >> "$GITHUB_OUTPUT"
+
+      - name: Configure (tvOS Simulator)
+        run: mise run tvos:configure
+        env:
+          MISE_EXPERIMENTAL: "1"
+
+      - name: Build (tvOS Simulator)
+        run: mise run tvos:build
+
+      - name: Package .app bundle
+        id: package
+        shell: bash
+        run: |
+          set -euo pipefail
+          APP_PATH="ITGmania-debug.app"
+          if [ ! -d "$APP_PATH" ]; then
+            echo "Expected app bundle at $APP_PATH but it does not exist."
+            ls -la
+            exit 1
+          fi
+          VERSION="${{ steps.version.outputs.version }}"
+          [ -z "$VERSION" ] && VERSION="dev"
+          OUT="ITGmania-tvOS-${VERSION}-${GITHUB_SHA::7}.zip"
+          # ditto preserves bundle structure / symlinks correctly for .app bundles
+          ditto -c -k --sequesterRsrc --keepParent "$APP_PATH" "$OUT"
+          echo "artifact=$OUT" >> "$GITHUB_OUTPUT"
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: ITGmania-tvOS-${{ steps.version.outputs.version || 'dev' }}-${{ github.sha }}
+          path: ${{ steps.package.outputs.artifact }}
+          archive: false
+
+  release:
+    name: Create tvOS GitHub Release
+    needs: build
+    if: github.event_name == 'push' && github.ref_name == 'apple-tv' && needs.build.outputs.version_changed == 'true'
+    runs-on: macos-15
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          submodules: recursive
+
+      - name: Download build artifact
+        uses: actions/download-artifact@v6
+        with:
+          name: ITGmania-tvOS-${{ needs.build.outputs.version }}-${{ github.sha }}
+          path: ./dist
+
+      - name: Create GitHub Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          VERSION: ${{ needs.build.outputs.version }}
+        run: |
+          set -euo pipefail
+          TAG="tvos-v${VERSION}"
+          TITLE="ITGmania tvOS v${VERSION}"
+          # Idempotent: if the tag/release already exists, just upload assets.
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            echo "Release $TAG already exists, uploading additional assets."
+            gh release upload "$TAG" ./dist/* --clobber
+          else
+            gh release create "$TAG" \
+              --title "$TITLE" \
+              --target "$GITHUB_SHA" \
+              --notes "Automated tvOS release for version ${VERSION}." \
+              ./dist/*
+          fi

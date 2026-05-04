@@ -2,19 +2,20 @@ amends "package://github.com/jdx/hk/releases/download/v1.36.0/hk@1.36.0#/Config.
 import "package://github.com/jdx/hk/releases/download/v1.36.0/hk@1.36.0#/Builtins.pkl"
 
 // Exclude vendored, build artifacts, and third-party content from all steps
-exclude = List(
-  "extern",
-  "build-tvos",
-  "build-tvos-sim",
-  "build-tvos.bak",
-  "build-tvos-sim.bak",
-  "node_modules",
-  "dist",
-  "*.app",
-  "*.dSYM",
-  "Themes",
-  "Xcode"
-)
+exclude =
+  List(
+    "extern",
+    "build-tvos",
+    "build-tvos-sim",
+    "build-tvos.bak",
+    "build-tvos-sim.bak",
+    "node_modules",
+    "dist",
+    "*.app",
+    "*.dSYM",
+    "Themes",
+    "Xcode",
+  )
 
 local linters = new Mapping<String, Step> {
   ["shellcheck"] = (Builtins.shellcheck) {
@@ -23,15 +24,16 @@ local linters = new Mapping<String, Step> {
   }
   ["prettier"] = (Builtins.prettier) {
     // Limit to UploadUI and mise_tasks (Prettier does not support .toml/.pkl)
-    glob = List(
-      "src/arch/UploadServer/UploadUI/**/*.js",
-      "src/arch/UploadServer/UploadUI/**/*.ts",
-      "src/arch/UploadServer/UploadUI/**/*.tsx",
-      "src/arch/UploadServer/UploadUI/**/*.json",
-      "src/arch/UploadServer/UploadUI/**/*.html",
-      "src/arch/UploadServer/UploadUI/**/*.css",
-      "src/arch/UploadServer/UploadUI/**/*.md"
-    )
+    glob =
+      List(
+        "src/arch/UploadServer/UploadUI/**/*.js",
+        "src/arch/UploadServer/UploadUI/**/*.ts",
+        "src/arch/UploadServer/UploadUI/**/*.tsx",
+        "src/arch/UploadServer/UploadUI/**/*.json",
+        "src/arch/UploadServer/UploadUI/**/*.html",
+        "src/arch/UploadServer/UploadUI/**/*.css",
+        "src/arch/UploadServer/UploadUI/**/*.md",
+      )
   }
   ["eslint"] {
     dir = "src/arch/UploadServer/UploadUI"
@@ -39,6 +41,24 @@ local linters = new Mapping<String, Step> {
     check = "npx eslint {{files}}"
     fix = "npx eslint --fix {{files}}"
   }
+  // C/C++/Objective-C formatter (uses repo's .clang-format)
+  ["clang-format"] = (Builtins.clang_format) {
+    glob =
+      List(
+        "src/**/*.c",
+        "src/**/*.h",
+        "src/**/*.cpp",
+        "src/**/*.hpp",
+        "src/**/*.cc",
+        "src/**/*.hh",
+        "src/**/*.cxx",
+        "src/**/*.hxx",
+        "src/**/*.m",
+        "src/**/*.mm",
+      )
+  }
+  // Pkl formatter (formats hk.pkl itself)
+  ["pkl-format"] = (Builtins.pkl_format)
 }
 
 hooks {

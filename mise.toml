@@ -8,6 +8,7 @@ TVOS_APP        = "ITGmania-debug.app"
 includes = ["mise_tasks"]
 
 [tools]
+clang-format = "21"
 hk = "latest"
 node = "22"
 "npm:prettier" = "latest"
