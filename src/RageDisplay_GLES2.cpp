@@ -14,6 +14,7 @@
 #include "RageTimer.h"
 #include "RageTypes.h"
 #include "RageUtil.h"
+#include "RageUtil/Endian.h"
 #include "arch/LowLevelWindow/LowLevelWindow.h"
 #include "global.h"
 

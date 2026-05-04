@@ -272,6 +272,12 @@ list(APPEND SMDATA_ARCH_INPUT_HPP "arch/InputHandler/InputHandler.h"
             "arch/InputHandler/InputHandler_PumpHID.h"
             "arch/InputHandler/InputHandler_MonkeyKeyboard.h")
 
+if(TVOS)
+  # PumpHID needs hidapi which has no tvOS port
+  list(REMOVE_ITEM SMDATA_ARCH_INPUT_SRC "arch/InputHandler/InputHandler_PumpHID.cpp")
+  list(REMOVE_ITEM SMDATA_ARCH_INPUT_HPP "arch/InputHandler/InputHandler_PumpHID.h")
+endif()
+
 if(WIN32)
   list(APPEND SMDATA_ARCH_INPUT_SRC
               "arch/InputHandler/InputHandler_DirectInput.cpp"

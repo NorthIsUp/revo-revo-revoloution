@@ -9,6 +9,7 @@ includes = ["mise_tasks"]
 
 [tools]
 clang-format = "21"
+cmake = "latest"
 hk = "latest"
 node = "22"
 "npm:prettier" = "latest"

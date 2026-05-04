@@ -1,8 +1,6 @@
 #ifndef ARCH_SETUP_TVOS_H
 #define ARCH_SETUP_TVOS_H
 
-extern "C" int sm_main(int argc, char* argv[]);
-
 #define HAVE_CXA_DEMANGLE
 #define HAVE_DECL_SIGUSR1 1
 

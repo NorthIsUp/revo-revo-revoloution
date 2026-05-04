@@ -30,6 +30,11 @@
 #include <sys/types.h>
 #include <unistd.h>
 #endif
+#if defined(TVOS)
+#include <paths.h>
+#include <sys/types.h>
+#include <unistd.h>
+#endif
 
 #include <miniz.h>
 

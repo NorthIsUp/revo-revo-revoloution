@@ -33,19 +33,19 @@ inline const std::vector<std::string>& GetDefaultSoundDriverList() {
 #include "LoadingWindow/LoadingWindow_Null.h"
 #include "LowLevelWindow/LowLevelWindow_tvOS.h"
 
-inline const std::vector<RString>& GetDefaultInputDriverList() {
-	static const std::vector<RString> inputDriverList = { "tvOS" };
-	return inputDriverList;
+inline const std::vector<std::string>& GetDefaultInputDriverList() {
+  static const std::vector<std::string> inputDriverList = {"tvOS"};
+  return inputDriverList;
 }
 
-inline const std::vector<RString>& GetDefaultMovieDriverList() {
-	static const std::vector<RString> movieDriverList = { "FFMpeg", "Null" };
-	return movieDriverList;
+inline const std::vector<std::string>& GetDefaultMovieDriverList() {
+  static const std::vector<std::string> movieDriverList = {"FFMpeg", "Null"};
+  return movieDriverList;
 }
 
-inline const std::vector<RString>& GetDefaultSoundDriverList() {
-	static const std::vector<RString> soundDriverList = { "AudioUnit", "Null" };
-	return soundDriverList;
+inline const std::vector<std::string>& GetDefaultSoundDriverList() {
+  static const std::vector<std::string> soundDriverList = {"AudioUnit", "Null"};
+  return soundDriverList;
 }
 
 #elif defined(MACOSX)
