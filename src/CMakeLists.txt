@@ -105,6 +105,11 @@ endif()
 
 if(CMAKE_GENERATOR STREQUAL "Xcode")
   target_compile_options(mbedcrypto PRIVATE -Wno-shorten-64-to-32)
+  # StepMania core has ~1500 size_t→int conversions baked into the codebase
+  # (StdString.h, XmlToLua, NetworkSyncManager, etc.). These are upstream
+  # technical debt. Suppress the warning project-wide rather than fork the
+  # surface area needed to fix them.
+  target_compile_options("${SM_EXE_NAME}" PRIVATE -Wno-shorten-64-to-32)
 endif()
 
 # Compilation flags per project here.

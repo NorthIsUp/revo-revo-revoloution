@@ -31,6 +31,15 @@ else()
   set(LIBJPEG_TURBO_CMAKE_GENERATOR "${CMAKE_GENERATOR}")
 endif()
 
+if(APPLE)
+  # libjpeg-turbo's inner build is Unix Makefiles + ar+ranlib; pass quiet
+  # flag through ranlib only. CMAKE_STATIC_LINKER_FLAGS_INIT would leak to
+  # ar which doesn't understand -no_warning_for_no_symbols.
+  set(QUIET_ARCHIVE_FLAGS
+      -DCMAKE_C_ARCHIVE_FINISH=<CMAKE_RANLIB>\ -no_warning_for_no_symbols\ <TARGET>
+      -DCMAKE_CXX_ARCHIVE_FINISH=<CMAKE_RANLIB>\ -no_warning_for_no_symbols\ <TARGET>)
+endif()
+
 ExternalProject_Add(
   libjpeg_turbo_project
 
@@ -43,6 +52,7 @@ ExternalProject_Add(
              -DENABLE_STATIC=ON
              -DWITH_TURBOJPEG=ON
              ${ARCH_FLAGS}
+             ${QUIET_ARCHIVE_FLAGS}
   BUILD_IN_SOURCE OFF
   CONFIGURE_HANDLED_BY_BUILD ON
   BUILD_BYPRODUCTS "${LIB_PATH}"  # Needed for Ninja generator. See BUILD_BYPRODUCTS docs for details.

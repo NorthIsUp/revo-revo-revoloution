@@ -28,10 +28,8 @@
     <array>
       <string>arm64</string>
     </array>
-    <key>UIDeviceFamily</key>
-    <array>
-      <integer>3</integer>
-    </array>
+    <!-- UIDeviceFamily intentionally omitted: set via TARGETED_DEVICE_FAMILY=3
+         build setting in src/CMakeLists.txt to satisfy Xcode's warning. -->
     <key>NSHumanReadableCopyright</key>
     <string>Copyright 2001-2026</string>
     <key>UILaunchStoryboardName</key>

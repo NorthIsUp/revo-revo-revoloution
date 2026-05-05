@@ -9,7 +9,9 @@
 #define GL_GET_ERROR_IS_SLOW
 #define NO_GL_FLUSH
 
+#ifndef CPU_AARCH64
 #define CPU_AARCH64
+#endif
 
 #ifndef TVOS
 #define TVOS

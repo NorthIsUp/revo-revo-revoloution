@@ -15,3 +15,11 @@ set(CMAKE_FIND_ROOT_PATH_MODE_PACKAGE ONLY)
 
 set(CMAKE_XCODE_ATTRIBUTE_ONLY_ACTIVE_ARCH NO)
 set(CMAKE_IOS_INSTALL_COMBINED NO)
+
+# Apple's ranlib emits "has no symbols" for translation units that compile
+# down to nothing on arm64 (mbedtls/tomcrypt/tommath/vorbis/libjpeg-turbo
+# all have several). Silence the noise repo-wide via -no_warning_for_no_symbols.
+# Applies to all targets in this build AND propagates to ExternalProject_Add
+# children that pick up the toolchain.
+set(CMAKE_C_ARCHIVE_FINISH "<CMAKE_RANLIB> -no_warning_for_no_symbols <TARGET>")
+set(CMAKE_CXX_ARCHIVE_FINISH "<CMAKE_RANLIB> -no_warning_for_no_symbols <TARGET>")

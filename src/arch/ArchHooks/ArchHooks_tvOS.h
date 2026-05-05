@@ -5,11 +5,11 @@
 
 class ArchHooks_tvOS : public ArchHooks {
  public:
-  void Init();
-  std::string GetArchName() const;
-  void DumpDebugInfo();
-  std::string GetPreferredLanguage();
-  float GetDisplayAspectRatio();
+  void Init() override;
+  std::string GetArchName() const override;
+  void DumpDebugInfo() override;
+  std::string GetPreferredLanguage();  // not virtual in base, not an override
+  float GetDisplayAspectRatio() override;
   void StartUploadServer() override;
   std::string GetAppSetting(const std::string& key) const override;
   void SetAppSetting(const std::string& key, const std::string& value) override;

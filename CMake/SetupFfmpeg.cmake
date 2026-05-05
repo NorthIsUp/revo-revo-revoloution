@@ -72,6 +72,10 @@ if(NOT WITH_EXTERNAL_WARNINGS)
   list(APPEND FFMPEG_CONFIGURE "--extra-cflags=-w")
 endif()
 
+# NOTE: ffmpeg's configure does not accept a ranlib command with spaces, so
+# its handful of "has no symbols" warnings (libavformat/os_support.o etc.)
+# are left as-is rather than wrapped via --ranlib=...
+
 if(CMAKE_GENERATOR STREQUAL "Xcode")
   list(APPEND SM_FFMPEG_MAKE "make")
 else()
