@@ -9,7 +9,7 @@ Pipeline (local and CI share the same mise tasks):
 ```
 tvos:configure-device   # cmake -DCMAKE_OSX_SYSROOT=appletvos  -> build-tvos-device/
 tvos:archive            # xcodebuild archive                   -> RRRevoloution.xcarchive
-tvos:export             # xcodebuild -exportArchive (app-store-connect) -> export/*.ipa
+tvos:export             # xcodebuild -exportArchive (method=app-store) -> export/*.ipa
 tvos:upload             # xcrun altool --upload-app            -> TestFlight
 ```
 

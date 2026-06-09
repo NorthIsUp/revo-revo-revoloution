@@ -2,11 +2,13 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <!-- Template consumed by `mise run tvos:export`, which substitutes __TEAM_ID__
      with $TVOS_DEV_TEAM and writes the result into the device build dir.
-     method=app-store-connect produces a TestFlight/App Store .ipa. -->
+     method=app-store produces a TestFlight/App Store .ipa. (Xcode 16's
+     xcodebuild rejects the newer "app-store-connect" alias; "app-store" is
+     the portable value.) -->
 <plist version="1.0">
   <dict>
     <key>method</key>
-    <string>app-store-connect</string>
+    <string>app-store</string>
     <key>teamID</key>
     <string>__TEAM_ID__</string>
     <key>signingStyle</key>
