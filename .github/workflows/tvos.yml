@@ -9,6 +9,7 @@ on:
       - apple-tv
     paths-ignore:
       - '**.md'
+  workflow_dispatch: {}
 
 jobs:
   build:
@@ -107,6 +108,84 @@ jobs:
           name: RRRevoloution-tvOS-${{ steps.version.outputs.version || 'dev' }}-${{ github.sha }}
           path: ${{ steps.package.outputs.artifact }}
           archive: false
+
+  device:
+    name: tvOS Device (signed .ipa)
+    needs: build
+    # Secrets aren't available to PRs (incl. forks); only sign on push to
+    # apple-tv or a manual run, and only in the canonical repo.
+    if: >-
+      github.repository == 'NorthIsUp/revo-revo-revoloution' &&
+      github.event_name != 'pull_request'
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          submodules: recursive
+          fetch-depth: 2
+
+      - name: Install build dependencies
+        run: brew install nasm mise
+
+      - name: Select Xcode
+        run: sudo xcode-select -s /Applications/Xcode.app
+
+      - name: Trust mise config
+        run: mise trust --yes
+        env:
+          MISE_YES: "1"
+
+      - name: Set up App Store Connect API key
+        env:
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_KEY_P8: ${{ secrets.ASC_KEY_P8 }}
+        run: |
+          set -euo pipefail
+          if [ -z "${ASC_KEY_ID}" ] || [ -z "${ASC_KEY_P8}" ]; then
+            echo "::error::ASC_KEY_ID / ASC_KEY_P8 secrets are not set. See Docs/tvOS-device-build.md."
+            exit 1
+          fi
+          KEYDIR="$HOME/.appstoreconnect/private_keys"
+          mkdir -p "$KEYDIR"
+          KEYFILE="$KEYDIR/AuthKey_${ASC_KEY_ID}.p8"
+          printf '%s' "${ASC_KEY_P8}" | base64 --decode > "$KEYFILE"
+          echo "ASC_KEY_PATH=$KEYFILE" >> "$GITHUB_ENV"
+
+      - name: Archive + export signed .ipa
+        env:
+          MISE_EXPERIMENTAL: "1"
+          TVOS_DEV_TEAM: ${{ secrets.TVOS_DEV_TEAM }}
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+        run: mise run tvos:export
+
+      - name: Locate .ipa
+        id: ipa
+        shell: bash
+        run: |
+          set -euo pipefail
+          IPA=$(ls build-tvos-device/export/*.ipa | head -1)
+          VERSION="${{ needs.build.outputs.version }}"
+          [ -z "$VERSION" ] && VERSION="dev"
+          OUT="RRRevoloution-tvOS-${VERSION}-${GITHUB_SHA::7}.ipa"
+          cp "$IPA" "$OUT"
+          echo "artifact=$OUT" >> "$GITHUB_OUTPUT"
+
+      - name: Upload .ipa artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: RRRevoloution-tvOS-ipa-${{ needs.build.outputs.version || 'dev' }}-${{ github.sha }}
+          path: ${{ steps.ipa.outputs.artifact }}
+          archive: false
+
+      - name: Upload to TestFlight
+        # Only on a version bump: App Store Connect rejects duplicate build
+        # numbers (CFBundleVersion == SM_VERSION_TRADITIONAL).
+        if: github.event_name == 'push' && github.ref_name == 'apple-tv' && needs.build.outputs.version_changed == 'true'
+        env:
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+        run: mise run tvos:upload
 
   release:
     name: Create tvOS GitHub Release

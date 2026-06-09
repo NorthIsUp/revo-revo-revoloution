@@ -1,0 +1,34 @@
+#!/usr/bin/env zsh
+#MISE description="Export a signed .ipa from the tvOS archive (App Store Connect)"
+#MISE depends=["tvos:archive"]
+#MISE outputs=["{{env.TVOS_EXPORT_DIR}}/RRRevoloution.ipa"]
+set -euo pipefail
+
+if [ -z "${TVOS_DEV_TEAM:-}" ]; then
+  echo "Error: TVOS_DEV_TEAM is not set (needed for the ExportOptions teamID)."
+  exit 1
+fi
+
+# Render the ExportOptions template with the real team id into the build dir
+# (keeps the team out of version control; single source of truth = env).
+OPTS="$TVOS_DEVICE_BUILD_DIR/ExportOptions-tvOS.plist"
+sed "s/__TEAM_ID__/${TVOS_DEV_TEAM}/" Xcode/ExportOptions-tvOS.plist.in > "$OPTS"
+
+auth=(-allowProvisioningUpdates)
+if [ -n "${ASC_KEY_PATH:-}" ]; then
+  : "${ASC_KEY_ID:?ASC_KEY_ID required when ASC_KEY_PATH is set}"
+  : "${ASC_ISSUER_ID:?ASC_ISSUER_ID required when ASC_KEY_PATH is set}"
+  auth+=(-authenticationKeyPath "$ASC_KEY_PATH"
+         -authenticationKeyID "$ASC_KEY_ID"
+         -authenticationKeyIssuerID "$ASC_ISSUER_ID")
+fi
+
+rm -rf "$TVOS_EXPORT_DIR"
+xcodebuild -exportArchive \
+  -archivePath "$TVOS_ARCHIVE_PATH" \
+  -exportPath "$TVOS_EXPORT_DIR" \
+  -exportOptionsPlist "$OPTS" \
+  "${auth[@]}"
+
+echo "Exported .ipa to $TVOS_EXPORT_DIR:"
+ls -la "$TVOS_EXPORT_DIR"/*.ipa

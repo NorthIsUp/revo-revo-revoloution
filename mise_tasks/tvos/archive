@@ -1,0 +1,28 @@
+#!/usr/bin/env zsh
+#MISE description="Archive RRRevoloution for tvOS devices (signed .xcarchive)"
+#MISE depends=["tvos:configure-device"]
+#MISE sources=["src/**/*", "extern/**/*"]
+#MISE outputs=["{{env.TVOS_ARCHIVE_PATH}}/Info.plist"]
+set -euo pipefail
+
+# Optional App Store Connect API key auth (used in CI; locally xcodebuild
+# falls back to the Apple ID cached in Xcode). Set ASC_KEY_PATH to a .p8 to
+# enable non-interactive signing + provisioning-profile management.
+auth=(-allowProvisioningUpdates)
+if [ -n "${ASC_KEY_PATH:-}" ]; then
+  : "${ASC_KEY_ID:?ASC_KEY_ID required when ASC_KEY_PATH is set}"
+  : "${ASC_ISSUER_ID:?ASC_ISSUER_ID required when ASC_KEY_PATH is set}"
+  auth+=(-authenticationKeyPath "$ASC_KEY_PATH"
+         -authenticationKeyID "$ASC_KEY_ID"
+         -authenticationKeyIssuerID "$ASC_ISSUER_ID")
+fi
+
+rm -rf "$TVOS_ARCHIVE_PATH"
+xcodebuild archive \
+  -project "$TVOS_DEVICE_BUILD_DIR/StepMania.xcodeproj" \
+  -scheme RRRevoloution \
+  -destination 'generic/platform=tvOS' \
+  -archivePath "$TVOS_ARCHIVE_PATH" \
+  "${auth[@]}"
+
+echo "Archived to $TVOS_ARCHIVE_PATH"

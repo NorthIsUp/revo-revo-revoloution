@@ -1,0 +1,23 @@
+#!/usr/bin/env zsh
+#MISE description="Upload the exported tvOS .ipa to App Store Connect (TestFlight)"
+set -euo pipefail
+
+# Requires an App Store Connect API key. altool resolves the .p8 from one of
+# ./private_keys, ~/private_keys, ~/.private_keys, ~/.appstoreconnect/private_keys
+# named AuthKey_<ASC_KEY_ID>.p8.
+: "${ASC_KEY_ID:?ASC_KEY_ID required}"
+: "${ASC_ISSUER_ID:?ASC_ISSUER_ID required}"
+
+IPA=$(ls "$TVOS_EXPORT_DIR"/*.ipa 2>/dev/null | head -1 || true)
+if [ -z "${IPA:-}" ] || [ ! -f "$IPA" ]; then
+  echo "No .ipa found in $TVOS_EXPORT_DIR. Run 'mise run tvos:export' first."
+  exit 1
+fi
+
+echo "Uploading $IPA to App Store Connect (TestFlight)..."
+xcrun altool --upload-app --type tvos \
+  --file "$IPA" \
+  --apiKey "$ASC_KEY_ID" \
+  --apiIssuer "$ASC_ISSUER_ID"
+
+echo "Upload submitted. Processing can take a few minutes before it appears in TestFlight."

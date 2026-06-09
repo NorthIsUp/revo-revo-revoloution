@@ -1,0 +1,20 @@
+#!/usr/bin/env zsh
+#MISE description="Run CMake to configure the tvOS device (appletvos) build"
+#MISE sources=["CMakeLists.txt", "StepmaniaCore.cmake", "CMake/**/*.cmake", "src/CMakeLists.txt", "src/CMakeData-*.cmake", "extern/CMakeLists.txt", "extern/CMakeProject-*.cmake"]
+#MISE outputs=["{{env.TVOS_DEVICE_BUILD_DIR}}/StepMania.xcodeproj/project.pbxproj"]
+set -euo pipefail
+
+# Signed device builds require a real Apple Developer team so the app gets a
+# provisioning profile carrying the iCloud entitlement. CMake bakes the team
+# into the generated .xcodeproj via $ENV{TVOS_DEV_TEAM}; without it the build
+# falls back to "Sign to Run Locally" and iCloud is stripped (audit H2).
+if [ -z "${TVOS_DEV_TEAM:-}" ]; then
+  echo "Error: TVOS_DEV_TEAM is not set."
+  echo "Set your 10-char Apple Developer team id in .mise.local.toml or the env:"
+  echo "  export TVOS_DEV_TEAM=XXXXXXXXXX"
+  exit 1
+fi
+
+cmake -B "$TVOS_DEVICE_BUILD_DIR" -G Xcode \
+    -DCMAKE_SYSTEM_NAME=tvOS \
+    -DCMAKE_OSX_SYSROOT=appletvos

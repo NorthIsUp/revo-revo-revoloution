@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!-- Template consumed by `mise run tvos:export`, which substitutes __TEAM_ID__
+     with $TVOS_DEV_TEAM and writes the result into the device build dir.
+     method=app-store-connect produces a TestFlight/App Store .ipa. -->
+<plist version="1.0">
+  <dict>
+    <key>method</key>
+    <string>app-store-connect</string>
+    <key>teamID</key>
+    <string>__TEAM_ID__</string>
+    <key>signingStyle</key>
+    <string>automatic</string>
+    <!-- export the .ipa to disk; uploading to TestFlight is a separate,
+         explicit step (`mise run tvos:upload`) so the .ipa is also kept as
+         a CI artifact / GitHub release asset. -->
+    <key>destination</key>
+    <string>export</string>
+    <key>uploadSymbols</key>
+    <true/>
+    <key>generateAppStoreInformation</key>
+    <false/>
+  </dict>
+</plist>

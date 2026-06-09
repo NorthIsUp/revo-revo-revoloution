@@ -3,6 +3,11 @@ TVOS_SIM_DEVICE = "Apple TV 4K (3rd generation)"
 TVOS_BUNDLE_ID  = "com.northisup.rererevoloution"
 TVOS_BUILD_DIR  = "build-tvos"
 TVOS_APP        = "RRRevoloution-debug.app"
+# Signed device (appletvos) build — separate dir so it never clobbers the
+# Simulator build. archive -> .xcarchive -> export -> .ipa for TestFlight.
+TVOS_DEVICE_BUILD_DIR = "build-tvos-device"
+TVOS_ARCHIVE_PATH     = "build-tvos-device/RRRevoloution.xcarchive"
+TVOS_EXPORT_DIR       = "build-tvos-device/export"
 # Apple Developer team ID (10 chars) — must be set per-machine via shell
 # env or .mise.local.toml so that signed builds get a real provisioning
 # profile + iCloud entitlements. Without it, builds fall back to "Sign to
