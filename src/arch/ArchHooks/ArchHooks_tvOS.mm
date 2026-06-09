@@ -191,22 +191,164 @@ static std::string PathForDirectory(NSSearchPathDirectory directory) {
   return [url fileSystemRepresentation];
 }
 
+// How long boot will block waiting for iCloud content to download before
+// giving up and continuing. Downloads kicked off here keep running in the
+// background past this deadline, so anything not finished in time simply
+// appears on a later launch rather than hanging the game.
+static const NSTimeInterval kICloudMaterializeTimeoutSeconds = 90.0;
+
+// Resolves the app's iCloud ubiquity-container "Documents" URL exactly once.
+// URLForUbiquityContainerIdentifier: does blocking I/O (Apple: do not call on
+// the main thread) — we're on the boot thread here, which is fine — and it is
+// needed by both the game mount and the upload server, so cache it. Returns
+// nil if iCloud is unavailable (no account, container not provisioned).
+static NSURL* ICloudDocumentsURL() {
+  static NSURL* sDocsURL = nil;
+  static dispatch_once_t once;
+  dispatch_once(&once, ^{
+    NSFileManager* fm = [NSFileManager defaultManager];
+    // nil → first container in com.apple.developer.ubiquity-container-identifiers.
+    NSURL* containerURL = [fm URLForUbiquityContainerIdentifier:nil];
+    if (containerURL != nil) {
+      // MRC (no ARC in this target): the appended URL is autoreleased; retain
+      // it so the cached static survives past the autorelease pool drain.
+      sDocsURL = [[containerURL URLByAppendingPathComponent:@"Documents"] retain];
+    }
+  });
+  return sDocsURL;
+}
+
 // Returns the iCloud Drive Documents path for this app, or empty string if
-// iCloud is unavailable (no account, container not provisioned, or sync
-// disabled). The returned path is the user-visible "Documents" subfolder of
-// the app's ubiquity container, which is what NSUbiquitousContainerIsDocumentScopePublic
-// exposes via the Files app and icloud.com.
+// iCloud is unavailable or the Documents folder cannot be created (quota,
+// transient error, account just signed in). On failure the caller falls back
+// to the always-writable local sandbox rather than mounting a dead path.
+// The returned path is the user-visible "Documents" subfolder of the app's
+// ubiquity container, which is what NSUbiquitousContainerIsDocumentScopePublic
+// exposes on icloud.com and in the Files app on other devices.
 static std::string PathForICloudDocuments() {
-  NSFileManager* fm = [NSFileManager defaultManager];
-  // Pass nil to use the first container identifier listed in the app's
-  // entitlements (com.apple.developer.ubiquity-container-identifiers).
-  NSURL* containerURL = [fm URLForUbiquityContainerIdentifier:nil];
-  if (containerURL == nil) {
+  NSURL* docsURL = ICloudDocumentsURL();
+  if (docsURL == nil) {
     return std::string();
   }
-  NSURL* docsURL = [containerURL URLByAppendingPathComponent:@"Documents"];
-  [fm createDirectoryAtURL:docsURL withIntermediateDirectories:YES attributes:nil error:nil];
+  NSFileManager* fm = [NSFileManager defaultManager];
+  NSError* err = nil;
+  if (![fm createDirectoryAtURL:docsURL
+      withIntermediateDirectories:YES
+                       attributes:nil
+                            error:&err]) {
+    NSLog(
+        @"[RRRevoloution] iCloud Documents not usable (%@); using local sandbox.",
+        err.localizedDescription);
+    return std::string();
+  }
   return [docsURL fileSystemRepresentation];
+}
+
+// Content added on another device — or evicted locally under storage pressure
+// — exists on disk only as a zero-byte `.<name>.icloud` placeholder until the
+// app explicitly downloads it. The POSIX "dir" mount driver does readdir()/
+// open() and never sees those placeholders, so that content silently vanishes
+// from the song wheel. Walk the ubiquity Documents tree, request a download of
+// every not-yet-current item, and wait (bounded) for them to materialize so
+// the engine's song scan — which runs right after we mount — can read them.
+//
+// NOTE: this is eager (downloads everything, including large audio/video).
+// A future refinement could materialize chart/banner files first and defer
+// heavy media to play time (see Docs/tvOS-performance.md, "Pin gameplay audio
+// locally before play").
+static void MaterializeICloudTree(NSURL* rootURL, NSTimeInterval timeoutSeconds) {
+  NSFileManager* fm = [NSFileManager defaultManager];
+  NSArray<NSURLResourceKey>* keys =
+      @[ NSURLIsDirectoryKey, NSURLUbiquitousItemDownloadingStatusKey ];
+  // Enumerating with NSURL keys surfaces ubiquitous items by their logical
+  // name (e.g. "Foo.sm") with a downloading status, abstracting the on-disk
+  // `.Foo.sm.icloud` placeholder.
+  NSDirectoryEnumerator<NSURL*>* en = [fm enumeratorAtURL:rootURL
+                              includingPropertiesForKeys:keys
+                                                 options:0
+                                            errorHandler:nil];
+
+  NSMutableArray<NSURL*>* pending = [NSMutableArray array];
+  for (NSURL* url in en) {
+    // Bound peak memory while walking a potentially large library; `pending`
+    // retains the URLs we actually need to keep.
+    @autoreleasepool {
+      NSNumber* isDir = nil;
+      [url getResourceValue:&isDir forKey:NSURLIsDirectoryKey error:nil];
+      if (isDir.boolValue) {
+        continue;
+      }
+      NSString* status = nil;
+      [url getResourceValue:&status forKey:NSURLUbiquitousItemDownloadingStatusKey error:nil];
+      if (status != nil && ![status isEqualToString:NSURLUbiquitousItemDownloadingStatusCurrent]) {
+        NSError* err = nil;
+        if ([fm startDownloadingUbiquitousItemAtURL:url error:&err]) {
+          [pending addObject:url];
+        } else {
+          NSLog(
+              @"[RRRevoloution] iCloud: cannot download %@ (%@)", url.lastPathComponent,
+              err.localizedDescription);
+        }
+      }
+    }
+  }
+
+  NSUInteger requested = pending.count;
+  if (requested == 0) {
+    NSLog(@"[RRRevoloution] iCloud: content already materialized.");
+    return;
+  }
+  NSLog(@"[RRRevoloution] iCloud: downloading %lu item(s)...", (unsigned long)requested);
+
+  NSDate* deadline = [NSDate dateWithTimeIntervalSinceNow:timeoutSeconds];
+  while (pending.count > 0 && [deadline timeIntervalSinceNow] > 0) {
+    [NSThread sleepForTimeInterval:0.25];
+    NSMutableArray<NSURL*>* still = [NSMutableArray array];
+    for (NSURL* url in pending) {
+      [url removeAllCachedResourceValues];
+      NSString* status = nil;
+      [url getResourceValue:&status forKey:NSURLUbiquitousItemDownloadingStatusKey error:nil];
+      if (status == nil || ![status isEqualToString:NSURLUbiquitousItemDownloadingStatusCurrent]) {
+        [still addObject:url];
+      }
+    }
+    pending = still;
+  }
+
+  if (pending.count == 0) {
+    NSLog(@"[RRRevoloution] iCloud: %lu item(s) downloaded.", (unsigned long)requested);
+  } else {
+    NSLog(
+        @"[RRRevoloution] iCloud: %lu of %lu item(s) still downloading after %.0fs; "
+        @"they will appear on a later launch.",
+        (unsigned long)pending.count, (unsigned long)requested, timeoutSeconds);
+  }
+}
+
+// Resolves the user-content Documents root shared by the game mount and the
+// upload server, so the two never diverge. Honors the ITGmaniaUseICloud toggle
+// (default-on) and falls back to the local sandbox when iCloud is unavailable.
+static std::string UserDocumentsRoot(bool* outUsingICloud) {
+  bool usingICloud = false;
+  std::string docsDir;
+
+  NSUserDefaults* defs = [NSUserDefaults standardUserDefaults];
+  id useICloud = [defs objectForKey:@"ITGmaniaUseICloud"];
+  bool wantICloud = (useICloud == nil) || [useICloud boolValue];
+  if (wantICloud) {
+    std::string icloudDocs = PathForICloudDocuments();
+    if (!icloudDocs.empty()) {
+      docsDir = icloudDocs;
+      usingICloud = true;
+    }
+  }
+  if (docsDir.empty()) {
+    docsDir = PathForDirectory(NSDocumentDirectory);
+  }
+  if (outUsingICloud != nullptr) {
+    *outUsingICloud = usingICloud;
+  }
+  return docsDir;
 }
 
 void ArchHooks::MountUserFilesystems(const std::string& sDirOfExecutable) {
@@ -219,23 +361,8 @@ void ArchHooks::MountUserFilesystems(const std::string& sDirOfExecutable) {
   // default-on). Falls back to the local sandbox Documents otherwise. iCloud
   // Documents is exposed to the user via the Files app + icloud.com because
   // Info-tvOS.plist sets NSUbiquitousContainerIsDocumentScopePublic.
-  std::string docsDir;
   bool usingICloud = false;
-  {
-    NSUserDefaults* defs = [NSUserDefaults standardUserDefaults];
-    id useICloud = [defs objectForKey:@"ITGmaniaUseICloud"];
-    bool wantICloud = (useICloud == nil) || [useICloud boolValue];
-    if (wantICloud) {
-      std::string icloudDocs = PathForICloudDocuments();
-      if (!icloudDocs.empty()) {
-        docsDir = icloudDocs;
-        usingICloud = true;
-      }
-    }
-  }
-  if (docsDir.empty()) {
-    docsDir = PathForDirectory(NSDocumentDirectory);
-  }
+  std::string docsDir = UserDocumentsRoot(&usingICloud);
 
   NSString* docsNS = [NSString stringWithUTF8String:docsDir.c_str()];
   NSArray<NSString*>* docSubdirs =
@@ -251,6 +378,17 @@ void ArchHooks::MountUserFilesystems(const std::string& sDirOfExecutable) {
   NSLog(
       @"[RRRevoloution] User Documents root: %s (%s)", docsDir.c_str(),
       usingICloud ? "iCloud Drive" : "local sandbox");
+
+  // Pull down any iCloud content that exists only as a placeholder (added on
+  // another device or evicted) before mounting, so the "dir" driver and the
+  // song scan that follows can actually read it.
+  if (usingICloud) {
+    NSURL* icloudDocs = ICloudDocumentsURL();
+    if (icloudDocs != nil) {
+      MaterializeICloudTree(icloudDocs, kICloudMaterializeTimeoutSeconds);
+    }
+  }
+
   FILEMAN->Mount("dir", docsDir + "/Save", "/Save");
   FILEMAN->Mount("dir", docsDir + "/Songs", "/Songs");
   FILEMAN->Mount("dir", docsDir + "/Packages", "/Packages");
@@ -280,18 +418,9 @@ float ArchHooks_tvOS::GetDisplayAspectRatio() {
 }
 
 void ArchHooks_tvOS::StartUploadServer() {
-  // Match MountUserFilesystems: serve iCloud Drive Documents if available so
-  // uploads land in the same root the game reads from.
-  std::string docsPath;
-  NSUserDefaults* defs = [NSUserDefaults standardUserDefaults];
-  id useICloud = [defs objectForKey:@"ITGmaniaUseICloud"];
-  bool wantICloud = (useICloud == nil) || [useICloud boolValue];
-  if (wantICloud) {
-    docsPath = PathForICloudDocuments();
-  }
-  if (docsPath.empty()) {
-    docsPath = PathForDirectory(NSDocumentDirectory);
-  }
+  // Serve the same root MountUserFilesystems mounted (shared resolver +
+  // cached container URL) so uploads land where the game reads from.
+  std::string docsPath = UserDocumentsRoot(nullptr);
   UploadServer_Start(docsPath);
 }
 
