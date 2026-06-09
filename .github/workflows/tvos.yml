@@ -11,6 +11,11 @@ on:
       - '**.md'
   workflow_dispatch: {}
 
+# Authenticate mise's GitHub API calls (aqua backend installs CMake/pkl/etc.)
+# so tool installs don't hit the unauthenticated rate limit (403 Forbidden).
+env:
+  GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
 jobs:
   build:
     name: tvOS Simulator (Apple Silicon)
