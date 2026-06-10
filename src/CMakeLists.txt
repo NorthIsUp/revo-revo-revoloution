@@ -224,7 +224,15 @@ elseif(TVOS)
       XCODE_ATTRIBUTE_DEVELOPMENT_TEAM
       "$ENV{TVOS_DEV_TEAM}"
       XCODE_ATTRIBUTE_TARGETED_DEVICE_FAMILY
-      "3")
+      "3"
+      # Make `xcodebuild archive` record ApplicationProperties so the result is
+      # a distributable app archive. Without these the app builds into
+      # UninstalledProducts/ and -exportArchive finds no app to export
+      # ("exportOptionsPlist error for key method ... expected one {}").
+      XCODE_ATTRIBUTE_SKIP_INSTALL
+      "NO"
+      XCODE_ATTRIBUTE_INSTALL_PATH
+      "$(LOCAL_APPS_DIR)")
 
   set(APPLE_BUNDLE_RESOURCES
     "${SM_ROOT_DIR}/Announcers"
