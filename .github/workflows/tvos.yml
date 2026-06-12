@@ -127,6 +127,8 @@ jobs:
       github.repository == 'NorthIsUp/revo-revo-revoloution' &&
       github.event_name != 'pull_request'
     runs-on: macos-15
+    permissions:
+      contents: write
     steps:
       - uses: actions/checkout@v6
         with:
@@ -235,51 +237,25 @@ jobs:
           ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
         run: mise run tvos:upload
 
-  release:
-    name: Create tvOS GitHub Release
-    needs: [build, device]
-    if: github.event_name == 'push' && github.ref_name == 'apple-tv' && needs.build.outputs.version_changed == 'true'
-    runs-on: macos-15
-    permissions:
-      contents: write
-    steps:
-      - uses: actions/checkout@v6
-        with:
-          submodules: recursive
-
-      - name: Download build artifacts
-        # Each artifact lands in ./dist/<artifact-name>/. Do NOT use
-        # merge-multiple: it extracted the .ipa (itself a zip) into a stray
-        # Payload/ directory, which then broke `gh release ./dist/*`.
-        uses: actions/download-artifact@v6
-        with:
-          path: ./dist
-
-      - name: Create GitHub Release
-        shell: bash
+      - name: Create GitHub release
+        # On a version bump, publish the signed .ipa straight from disk. (The
+        # old separate release job round-tripped through download-artifact,
+        # which extracted the .ipa — a zip — into a stray Payload/ dir.)
+        if: github.event_name == 'push' && github.ref_name == 'apple-tv' && needs.build.outputs.version_changed == 'true'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           VERSION: ${{ needs.build.outputs.version }}
+          IPA: ${{ steps.ipa.outputs.artifact }}
         run: |
           set -euo pipefail
           TAG="tvos-v${VERSION}"
           TITLE="RRRevoloution tvOS v${VERSION}"
-          # Attach only real build files — never a directory (bash 3.2 safe).
-          ASSETS=()
-          while IFS= read -r f; do ASSETS+=("$f"); done \
-            < <(find ./dist -type f \( -name '*.ipa' -o -name '*.zip' \))
-          if [ ${#ASSETS[@]} -eq 0 ]; then
-            echo "::error::no .ipa/.zip assets found under ./dist"; find ./dist | head -50; exit 1
-          fi
-          printf 'Attaching: %s\n' "${ASSETS[@]}"
-          # Idempotent: if the tag/release already exists, just upload assets.
           if gh release view "$TAG" >/dev/null 2>&1; then
-            echo "Release $TAG already exists, uploading additional assets."
-            gh release upload "$TAG" "${ASSETS[@]}" --clobber
+            gh release upload "$TAG" "$IPA" --clobber
           else
             gh release create "$TAG" \
               --title "$TITLE" \
               --target "$GITHUB_SHA" \
               --notes "Automated tvOS release for version ${VERSION}." \
-              "${ASSETS[@]}"
+              "$IPA"
           fi
