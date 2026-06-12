@@ -13,6 +13,14 @@ void ChangeGame(const std::string& new_game, const std::string& new_theme = "");
 void StartConcurrentRendering();
 void FinishConcurrentRendering();
 
+/* Thread-safe request to purge non-essential caches at the next frame
+ * boundary. Safe to call from any thread (notably the UIKit/main thread, e.g.
+ * a tvOS memory-pressure or backgrounding callback). The actual purge runs on
+ * the game thread inside RunGameLoop, because the engine singletons it touches
+ * (RageTextureManager, etc.) are not thread-safe and are owned by the game
+ * thread. */
+void RequestCachePurge();
+
 };  // namespace GameLoop
 
 #endif

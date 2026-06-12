@@ -1,5 +1,6 @@
 #include "GameLoop.h"
 
+#include <atomic>
 #include <cmath>
 #include <string>
 
@@ -22,6 +23,7 @@
 #include "RageThreads.h"
 #include "RageTimer.h"
 #include "RageUtil.h"
+#include "Screen.h"
 #include "ScreenManager.h"
 #include "ThemeManager.h"
 #include "arch/ArchHooks/ArchHooks.h"
@@ -38,6 +40,54 @@ static Preference<float> g_fConstantUpdateDeltaSeconds(
     "ConstantUpdateDeltaSeconds", 0);
 
 void HandleInputEvents(float fDeltaTime);
+
+/* Set from any thread (e.g. the tvOS UIKit memory-pressure / backgrounding
+ * callbacks), drained on the game thread at a frame boundary. We deliberately
+ * do NOT touch any engine singleton from the requesting thread. */
+static std::atomic<bool> g_bPurgeCachesRequested(false);
+
+void GameLoop::RequestCachePurge() {
+  g_bPurgeCachesRequested.store(true, std::memory_order_relaxed);
+}
+
+/* Runs on the game thread, only at a frame boundary (never mid-frame). Sheds
+ * non-essential caches in response to a request posted via RequestCachePurge().
+ * Kept conservative: only operations that are safe at a screen boundary. */
+static void DrainCachePurgeRequest() {
+  // Cheap, lock-free check on the common path (no pending request).
+  if (!g_bPurgeCachesRequested.exchange(false, std::memory_order_relaxed)) {
+    return;
+  }
+
+  if (LOG) {
+    LOG->Trace("GameLoop: draining cache-purge request (memory pressure)");
+  }
+
+  // Determine the current top screen so we avoid thrashing caches that the
+  // active screen is actively using (e.g. the music wheel's preloaded banners
+  // on song-select).
+  std::string sTopScreen;
+  if (SCREENMAN != nullptr) {
+    Screen* pTop = SCREENMAN->GetTopScreen();
+    if (pTop != nullptr) {
+      sTopScreen = pTop->GetName();
+    }
+  }
+  const bool bOnSongSelect = (sTopScreen.find("SelectMusic") != std::string::npos);
+
+  // Always safe: collect any textures whose refcount has already dropped to 0.
+  if (TEXTUREMAN != nullptr) {
+    TEXTUREMAN->DoDelayedDelete();
+  }
+
+  // Off song-select, shed cached textures the same way a screen change would.
+  // On song-select these caches back exactly what's on screen, so leaving them
+  // avoids a reload thrash that could be worse than the pressure we're
+  // responding to.
+  if (!bOnSongSelect && TEXTUREMAN != nullptr) {
+    TEXTUREMAN->DeleteCachedTextures();
+  }
+}
 
 static float g_fUpdateRate = 1;
 void GameLoop::SetUpdateRate(float fUpdateRate) { g_fUpdateRate = fUpdateRate; }
@@ -306,6 +356,10 @@ void GameLoop::RunGameLoop() {
     }
 
     CheckFocus();
+
+    // Drain any pending cache-purge request (e.g. from a tvOS memory-pressure
+    // or backgrounding event) at this frame boundary, on the game thread.
+    DrainCachePurgeRequest();
 
     UpdateAllButDraw(false);
 

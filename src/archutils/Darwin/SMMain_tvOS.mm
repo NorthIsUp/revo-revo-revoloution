@@ -1,3 +1,4 @@
+#include "GameLoop.h"
 #include "InputFilter.h"
 #include "ProductInfo.h"
 #include "RageLog.h"
@@ -9,6 +10,14 @@
 #include "global.h"
 
 #import <UIKit/UIKit.h>
+#import <dispatch/dispatch.h>
+
+#include <TargetConditionals.h>
+
+/* This file is tvOS-only (selected via the TVOS branch in CMakeData-os.cmake)
+ * and is compiled WITHOUT -fobjc-arc, i.e. under manual retain/release (MRC).
+ * Objects that must outlive the local scope are retained explicitly and never
+ * released, since they live for the entire application lifetime. */
 
 @interface SMViewController : UIViewController
 @end
@@ -108,6 +117,40 @@
 
 /* g_argc and g_argv are declared extern in RageUtil.h */
 
+/* Retained for the lifetime of the app (MRC: never released). The
+ * memory-pressure source fires on the main queue; its handler MUST NOT touch
+ * engine singletons directly (RageTextureManager / ImageCache / SOUND are not
+ * thread-safe and are owned by the game thread). It only posts a thread-safe
+ * request that the game loop drains at a frame boundary. */
+static dispatch_source_t g_pMemoryPressureSource = nil;
+
+static void InstallMemoryPressureSource() {
+  if (g_pMemoryPressureSource != nil) {
+    return;
+  }
+
+  dispatch_source_t source = dispatch_source_create(
+      DISPATCH_SOURCE_TYPE_MEMORYPRESSURE, 0,
+      DISPATCH_MEMORYPRESSURE_WARN | DISPATCH_MEMORYPRESSURE_CRITICAL,
+      dispatch_get_main_queue());
+  if (source == nil) {
+    return;
+  }
+
+  dispatch_source_set_event_handler(source, ^{
+    // Runs on the main queue. Do NOT call engine singletons here; just post a
+    // request that the game thread drains at a frame boundary.
+    GameLoop::RequestCachePurge();
+  });
+
+  dispatch_resume(source);
+
+  // MRC: dispatch_source_create returns a +1-owned object (dispatch objects are
+  // not autoreleased). We keep that ownership by storing it in a file-static for
+  // the app's lifetime; it is intentionally never released.
+  g_pMemoryPressureSource = source;
+}
+
 @implementation SMAppDelegate
 
 - (BOOL)application:(UIApplication*)application
@@ -118,9 +161,25 @@
   self.window.rootViewController = rootVC;
   [self.window makeKeyAndVisible];
 
+  // Install graceful memory-pressure handling so tvOS sheds caches instead of
+  // jetsam-killing the app. Both the dispatch source and the UIKit memory
+  // warning notification simply request a purge on the game thread.
+  InstallMemoryPressureSource();
+  [[NSNotificationCenter defaultCenter]
+      addObserver:self
+         selector:@selector(handleMemoryWarning:)
+             name:UIApplicationDidReceiveMemoryWarningNotification
+           object:nil];
+
   [NSThread detachNewThreadSelector:@selector(startGame) toTarget:self withObject:nil];
 
   return YES;
+}
+
+- (void)handleMemoryWarning:(NSNotification*)notification {
+  // Fires on the main thread. Only post a thread-safe request; the game loop
+  // performs the actual purge at a frame boundary.
+  GameLoop::RequestCachePurge();
 }
 
 - (void)startGame {
@@ -132,6 +191,9 @@
 }
 
 - (void)applicationDidEnterBackground:(UIApplication*)application {
+  // While backgrounded the app is a prime jetsam target, so proactively shed
+  // non-essential caches. The game loop drains this at its next frame boundary.
+  GameLoop::RequestCachePurge();
 }
 
 - (void)applicationWillEnterForeground:(UIApplication*)application {
