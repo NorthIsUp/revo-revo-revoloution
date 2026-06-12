@@ -31,6 +31,11 @@ class RageSoundDriver_AU : public RageSoundDriver {
       CFRunLoopObserverRef, CFRunLoopActivity activity, void* inRefCon);
 
   double m_TimeScale;
+#if defined(TVOS)
+  // Hardware sample rate reported by AVAudioSession after activation (0.0 if
+  // unavailable). Used to run the AU at the native rate and avoid realtime SRC.
+  double m_HardwareSampleRate;
+#endif
   AudioUnit m_OutputUnit;
   int m_iSampleRate;
   bool m_bDone;

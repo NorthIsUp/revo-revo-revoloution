@@ -539,6 +539,7 @@ elseif(TVOS)
               ${MAC_FRAME_QUARTZCORE}
               ${MAC_FRAME_COREFOUNDATION}
               ${MAC_FRAME_AUDIOTOOLBOX}
+              ${MAC_FRAME_AVFAUDIO}
               ${MAC_FRAME_COREAUDIO}
               ${MAC_FRAME_CFNETWORK}
               ${MAC_FRAME_UNIFORMTYPEIDENTIFIERS}

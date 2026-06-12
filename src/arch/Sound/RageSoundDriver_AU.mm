@@ -9,6 +9,7 @@
 
 #if defined(TVOS)
 #include <AudioToolbox/AudioToolbox.h>
+#include <AVFAudio/AVFAudio.h>
 #include <mach/mach_time.h>
 #else
 #include <AudioToolbox/AudioServices.h>
@@ -32,7 +33,11 @@ static const char* FormatOSError(OSStatus status) {
 }
 
 RageSoundDriver_AU::RageSoundDriver_AU()
-    : m_OutputUnit(nullptr),
+    :
+#if defined(TVOS)
+      m_HardwareSampleRate(0.0),
+#endif
+      m_OutputUnit(nullptr),
       m_iSampleRate(0),
       m_bDone(false),
       m_bStarted(false),
@@ -117,10 +122,79 @@ static double GetHostTimeScale(Float64 sampleRate) {
   double hostTicksPerSecond = 1e9 * (double)info.denom / (double)info.numer;
   return sampleRate / hostTicksPerSecond;
 }
+
+/* Configure the shared AVAudioSession for low-latency playback before the
+ * RemoteIO AudioUnit is created and started. Without this, the OS picks a
+ * default session whose hardware sample rate (48 kHz on Apple TV) differs from
+ * the driver's stream format, forcing realtime sample-rate conversion in the
+ * IO render callback.
+ *
+ * desiredRate is the rate we would like the hardware to run at. Passing the
+ * hardware's own rate (or 0, meaning "no preference") avoids requesting a rate
+ * the device cannot honor. Returns the session's actual sample rate after
+ * activation (0.0 on hard failure), so the caller can match the AU stream
+ * format to the hardware and skip realtime SRC.
+ *
+ * This file is compiled WITHOUT -fobjc-arc (MRC); +sharedInstance returns a
+ * non-owned singleton and the NSError outparams are autoreleased, so no manual
+ * retain/release is required here. */
+static Float64 ConfigureAudioSession(Float64 desiredRate, NSTimeInterval ioBufferDuration) {
+  AVAudioSession* session = [AVAudioSession sharedInstance];
+  NSError* error = nil;
+
+  if (![session setCategory:AVAudioSessionCategoryPlayback error:&error]) {
+    LOG->Warn(
+        "AVAudioSession: couldn't set playback category: %s",
+        [[error localizedDescription] UTF8String]);
+    error = nil;
+  }
+
+  if (desiredRate > 0.0 &&
+      ![session setPreferredSampleRate:desiredRate error:&error]) {
+    LOG->Warn(
+        "AVAudioSession: couldn't set preferred sample rate %g: %s", desiredRate,
+        [[error localizedDescription] UTF8String]);
+    error = nil;
+  }
+
+  if (![session setPreferredIOBufferDuration:ioBufferDuration error:&error]) {
+    LOG->Warn(
+        "AVAudioSession: couldn't set preferred IO buffer duration %g: %s",
+        ioBufferDuration, [[error localizedDescription] UTF8String]);
+    error = nil;
+  }
+
+  if (![session setActive:YES error:&error]) {
+    LOG->Warn(
+        "AVAudioSession: couldn't activate session: %s",
+        [[error localizedDescription] UTF8String]);
+    error = nil;
+    /* Even if activation reports failure, fall through and report whatever rate
+     * the session exposes; the AU may still come up. */
+  }
+
+  Float64 actualRate = [session sampleRate];
+  LOG->Info(
+      "AVAudioSession active: sampleRate=%g, IOBufferDuration=%g, outputLatency=%g",
+      actualRate, [session IOBufferDuration], [session outputLatency]);
+  return actualRate;
+}
 #endif
 
 std::string RageSoundDriver_AU::Init() {
   AudioComponentDescription desc;
+
+#if defined(TVOS)
+  /* Configure AVAudioSession before touching the AudioUnit. We request the
+   * user's preferred rate if one is pinned (SoundPreferredSampleRate != 0),
+   * otherwise we let the hardware keep its native rate (request 0). The
+   * returned actualRate is the hardware rate we will run the driver at, so the
+   * AU input format matches the hardware and no realtime SRC is needed. */
+  Float64 requestedRate = double(int(PREFSMAN->m_iSoundPreferredSampleRate));
+  /* ~10 ms IO buffer: low latency without starving a fanless box. The OS will
+   * clamp this to a supported value. */
+  m_HardwareSampleRate = ConfigureAudioSession(requestedRate, 0.010);
+#endif
 
   desc.componentType = kAudioUnitType_Output;
 #if defined(TVOS)
@@ -160,6 +234,15 @@ std::string RageSoundDriver_AU::Init() {
   AudioStreamBasicDescription streamFormat;
 
   streamFormat.mSampleRate = PREFSMAN->m_iSoundPreferredSampleRate;
+#if defined(TVOS)
+  /* Prefer the hardware's actual rate reported by AVAudioSession (48 kHz on
+   * Apple TV). Running the AU input at the hardware rate means RemoteIO does no
+   * realtime sample-rate conversion. Only override when the user hasn't pinned
+   * a specific rate via SoundPreferredSampleRate (i.e. it's 0/unset). */
+  if (PREFSMAN->m_iSoundPreferredSampleRate <= 0 && m_HardwareSampleRate > 0.0) {
+    streamFormat.mSampleRate = m_HardwareSampleRate;
+  }
+#endif
   streamFormat.mFormatID = kAudioFormatLinearPCM;
   streamFormat.mFormatFlags = kFormatFlags;
   streamFormat.mBytesPerPacket = kBytesPerPacket;
