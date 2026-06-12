@@ -325,6 +325,138 @@ static void MaterializeICloudTree(NSURL* rootURL, NSTimeInterval timeoutSeconds)
   }
 }
 
+// Walks the ubiquity Documents tree and resolves any NSFileVersion conflicts in
+// place before the engine reads a single byte. Cross-device edits to the same
+// file (e.g. a profile/score file written on two Apple TVs while both were
+// online) produce conflict versions; left unresolved, the engine can read a
+// stale/torn copy and the user silently loses scores. We keep the *current*
+// version (what +currentVersionOfItemAtURL: returns — the file the POSIX "dir"
+// driver will open) and drop every other conflict version.
+//
+// Common case is cheap: +unresolvedConflictVersionsOfItemAtURL: returns nil/empty
+// for the overwhelming majority of files (no conflict), so per-file cost is a
+// single metadata query and we never touch NSFileVersion's heavier machinery.
+//
+// MRC note: NSFileVersion/NSFileCoordinator objects returned here are
+// autoreleased and only used within local scope, so no manual retain/release is
+// needed; the per-item @autoreleasepool bounds peak memory across a large tree.
+static void ResolveICloudConflicts(NSURL* rootURL) {
+  NSFileManager* fm = [NSFileManager defaultManager];
+  NSDirectoryEnumerator<NSURL*>* en =
+      [fm enumeratorAtURL:rootURL
+          includingPropertiesForKeys:@[ NSURLIsDirectoryKey ]
+                             options:0
+                        errorHandler:nil];
+
+  NSUInteger resolvedFiles = 0;
+  for (NSURL* url in en) {
+    @autoreleasepool {
+      NSNumber* isDir = nil;
+      [url getResourceValue:&isDir forKey:NSURLIsDirectoryKey error:nil];
+      if (isDir.boolValue) {
+        continue;
+      }
+
+      // Cheap no-conflict fast path: nil/empty for nearly every file.
+      NSArray<NSFileVersion*>* conflicts =
+          [NSFileVersion unresolvedConflictVersionsOfItemAtURL:url];
+      if (conflicts.count == 0) {
+        continue;
+      }
+
+      // Decide which version to keep. +currentVersionOfItemAtURL: is the copy
+      // the POSIX driver will actually open, so prefer it; only swap the file
+      // into place if a conflict version is strictly newer by modificationDate.
+      NSFileVersion* current = [NSFileVersion currentVersionOfItemAtURL:url];
+      NSFileVersion* newest = current;
+      NSDate* newestDate = current.modificationDate;
+      for (NSFileVersion* v in conflicts) {
+        NSDate* d = v.modificationDate;
+        if (d != nil && (newestDate == nil || [d compare:newestDate] == NSOrderedDescending)) {
+          newest = v;
+          newestDate = d;
+        }
+      }
+
+      // If a conflict version won, promote its contents into the canonical URL
+      // under a coordinated write so we don't race the sync daemon.
+      if (newest != nil && newest != current) {
+        NSFileCoordinator* coord = [[[NSFileCoordinator alloc] initWithFilePresenter:nil] autorelease];
+        NSError* coordErr = nil;
+        [coord coordinateWritingItemAtURL:url
+                                  options:NSFileCoordinatorWritingForReplacing
+                                    error:&coordErr
+                               byAccessor:^(NSURL* newURL) {
+                                 NSError* replaceErr = nil;
+                                 if ([newest replaceItemAtURL:newURL options:0 error:&replaceErr] == nil) {
+                                   NSLog(
+                                       @"[RRRevoloution] iCloud: could not promote newer conflict "
+                                       @"version of %@ (%@)",
+                                       url.lastPathComponent, replaceErr.localizedDescription);
+                                 }
+                               }];
+        if (coordErr != nil) {
+          NSLog(
+              @"[RRRevoloution] iCloud: coordination failed resolving %@ (%@)",
+              url.lastPathComponent, coordErr.localizedDescription);
+        }
+      }
+
+      // Mark every conflict version resolved and remove the non-current
+      // versions so the engine never sees a conflicted item. removeOtherVersions
+      // collapses to just the current version on disk.
+      for (NSFileVersion* v in conflicts) {
+        v.resolved = YES;
+      }
+      NSError* removeErr = nil;
+      if (![NSFileVersion removeOtherVersionsOfItemAtURL:url error:&removeErr]) {
+        NSLog(
+            @"[RRRevoloution] iCloud: could not remove other versions of %@ (%@)",
+            url.lastPathComponent, removeErr.localizedDescription);
+      }
+      resolvedFiles++;
+    }
+  }
+
+  if (resolvedFiles > 0) {
+    NSLog(
+        @"[RRRevoloution] iCloud: resolved conflicts on %lu file(s).",
+        (unsigned long)resolvedFiles);
+  }
+}
+
+// Creates a directory under an NSFileCoordinator coordinated write so the
+// create doesn't race the iCloud sync daemon. Used only for our own mount-point
+// subdirs (Save/Songs/...); the engine's own file writes are intentionally left
+// uncoordinated — wrapping them would mean rewriting the RageFile layer.
+//
+// MRC note: the coordinator is autoreleased and the accessor block is
+// non-escaping (NS_NOESCAPE), so it runs synchronously before this returns and
+// captures `fm`/`dirURL` safely without a retain cycle.
+static void CoordinatedCreateDirectory(NSFileManager* fm, NSURL* dirURL) {
+  NSFileCoordinator* coord = [[[NSFileCoordinator alloc] initWithFilePresenter:nil] autorelease];
+  NSError* coordErr = nil;
+  [coord coordinateWritingItemAtURL:dirURL
+                            options:0
+                              error:&coordErr
+                         byAccessor:^(NSURL* newURL) {
+                           NSError* createErr = nil;
+                           if (![fm createDirectoryAtURL:newURL
+                                   withIntermediateDirectories:YES
+                                                    attributes:nil
+                                                         error:&createErr]) {
+                             NSLog(
+                                 @"[RRRevoloution] iCloud: could not create %@ (%@)",
+                                 newURL.lastPathComponent, createErr.localizedDescription);
+                           }
+                         }];
+  if (coordErr != nil) {
+    NSLog(
+        @"[RRRevoloution] iCloud: coordination failed creating %@ (%@)",
+        dirURL.lastPathComponent, coordErr.localizedDescription);
+  }
+}
+
 // Resolves the user-content Documents root shared by the game mount and the
 // upload server, so the two never diverge. Honors the ITGmaniaUseICloud toggle
 // (default-on) and falls back to the local sandbox when iCloud is unavailable.
@@ -368,10 +500,17 @@ void ArchHooks::MountUserFilesystems(const std::string& sDirOfExecutable) {
   NSArray<NSString*>* docSubdirs =
       @[ @"Save", @"Songs", @"Packages", @"NoteSkins", @"Themes", @"Courses", @"Downloads" ];
   for (NSString* sub in docSubdirs) {
-    [fm createDirectoryAtPath:[docsNS stringByAppendingPathComponent:sub]
-        withIntermediateDirectories:YES
-                         attributes:nil
-                              error:nil];
+    NSString* subPath = [docsNS stringByAppendingPathComponent:sub];
+    if (usingICloud) {
+      // These live in the ubiquity container; coordinate the create so it does
+      // not race the iCloud sync daemon (H3). Local sandbox needs no coordination.
+      CoordinatedCreateDirectory(fm, [NSURL fileURLWithPath:subPath isDirectory:YES]);
+    } else {
+      [fm createDirectoryAtPath:subPath
+          withIntermediateDirectories:YES
+                           attributes:nil
+                                error:nil];
+    }
   }
   // MountUserFilesystems runs before LOG is initialized, so use NSLog so
   // this is still visible (in os_log / `xcrun simctl spawn booted log stream`).
@@ -386,6 +525,10 @@ void ArchHooks::MountUserFilesystems(const std::string& sDirOfExecutable) {
     NSURL* icloudDocs = ICloudDocumentsURL();
     if (icloudDocs != nil) {
       MaterializeICloudTree(icloudDocs, kICloudMaterializeTimeoutSeconds);
+      // After materialization, collapse any cross-device NSFileVersion conflicts
+      // so the engine never reads a conflicted file (silent score loss). Cheap
+      // no-conflict fast path keeps this near-free on a clean library.
+      ResolveICloudConflicts(icloudDocs);
     }
   }
 
