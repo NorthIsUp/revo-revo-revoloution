@@ -322,8 +322,21 @@ void LowLevelWindow_tvOS::SwapBuffers() {
       g_HostView.image = uiImage;
     });
   } else {
-    /* Synchronous readback fallback */
-    glFinish();
+    /*
+     * Synchronous readback fallback.
+     *
+     * Perf audit #5a: this whole file compiles tvOS-only, so anything here
+     * runs every frame on a tile-based A-series GPU. An unconditional
+     * glFinish() drains the entire command queue and serializes CPU/GPU,
+     * defeating the pipeline overlap a TBDR architecture depends on. We only
+     * need the rendered pixels to be available for the glReadPixels() below,
+     * for which glFlush() (kick the queue, don't block) is sufficient — the
+     * readback itself implies the necessary completion. Desktop/other-platform
+     * present paths (RageDisplay_OGL.cpp's glFinish) are untouched; that file
+     * is not part of the tvOS build (see CMakeData-rage.cmake: TVOS compiles
+     * RageDisplay_GLES2.cpp only).
+     */
+    glFlush();
 
     uint8_t* raw = (uint8_t*)malloc(dataSize);
     if (!raw) {
