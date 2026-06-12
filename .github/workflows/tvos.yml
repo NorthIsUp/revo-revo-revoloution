@@ -248,14 +248,15 @@ jobs:
           submodules: recursive
 
       - name: Download build artifacts
-        # No name: downloads ALL artifacts of this run (the signed .ipa and the
-        # simulator .zip). merge-multiple flattens them into ./dist.
+        # Each artifact lands in ./dist/<artifact-name>/. Do NOT use
+        # merge-multiple: it extracted the .ipa (itself a zip) into a stray
+        # Payload/ directory, which then broke `gh release ./dist/*`.
         uses: actions/download-artifact@v6
         with:
           path: ./dist
-          merge-multiple: true
 
       - name: Create GitHub Release
+        shell: bash
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           VERSION: ${{ needs.build.outputs.version }}
@@ -263,14 +264,22 @@ jobs:
           set -euo pipefail
           TAG="tvos-v${VERSION}"
           TITLE="RRRevoloution tvOS v${VERSION}"
+          # Attach only real build files — never a directory (bash 3.2 safe).
+          ASSETS=()
+          while IFS= read -r f; do ASSETS+=("$f"); done \
+            < <(find ./dist -type f \( -name '*.ipa' -o -name '*.zip' \))
+          if [ ${#ASSETS[@]} -eq 0 ]; then
+            echo "::error::no .ipa/.zip assets found under ./dist"; find ./dist | head -50; exit 1
+          fi
+          printf 'Attaching: %s\n' "${ASSETS[@]}"
           # Idempotent: if the tag/release already exists, just upload assets.
           if gh release view "$TAG" >/dev/null 2>&1; then
             echo "Release $TAG already exists, uploading additional assets."
-            gh release upload "$TAG" ./dist/* --clobber
+            gh release upload "$TAG" "${ASSETS[@]}" --clobber
           else
             gh release create "$TAG" \
               --title "$TITLE" \
               --target "$GITHUB_SHA" \
               --notes "Automated tvOS release for version ${VERSION}." \
-              ./dist/*
+              "${ASSETS[@]}"
           fi
