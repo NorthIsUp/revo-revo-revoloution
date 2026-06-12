@@ -232,7 +232,12 @@ elseif(TVOS)
       XCODE_ATTRIBUTE_SKIP_INSTALL
       "NO"
       XCODE_ATTRIBUTE_INSTALL_PATH
-      "$(LOCAL_APPS_DIR)")
+      "$(LOCAL_APPS_DIR)"
+      # Name of the Brand Assets set in Assets.xcassets. actool compiles the
+      # layered App Icon + Top Shelf images and injects the required
+      # CFBundleIcons / TVTopShelfImage keys into the Info.plist.
+      XCODE_ATTRIBUTE_ASSETCATALOG_COMPILER_APPICON_NAME
+      "App Icon & Top Shelf Image")
 
   set(APPLE_BUNDLE_RESOURCES
     "${SM_ROOT_DIR}/Announcers"
@@ -255,6 +260,12 @@ elseif(TVOS)
   # System Settings (Settings.bundle) for theme and other overrides; must be at app bundle root.
   if(EXISTS "${SM_XCODE_DIR}/Settings.bundle")
     list(APPEND APPLE_BUNDLE_RESOURCES "${SM_XCODE_DIR}/Settings.bundle")
+  endif()
+
+  # App Icon + Top Shelf asset catalog; Xcode runs actool over this and emits
+  # CFBundleIcons / TVTopShelfImage into the Info.plist (see APPICON_NAME above).
+  if(EXISTS "${SM_XCODE_DIR}/Assets.xcassets")
+    list(APPEND APPLE_BUNDLE_RESOURCES "${SM_XCODE_DIR}/Assets.xcassets")
   endif()
 
   target_sources("${SM_EXE_NAME}" PUBLIC ${APPLE_BUNDLE_RESOURCES})

@@ -35,7 +35,11 @@ jobs:
         run: brew install nasm mise
 
       - name: Select Xcode
-        run: sudo xcode-select -s /Applications/Xcode.app
+        run: |
+          set -euo pipefail
+          LATEST=$(ls -d /Applications/Xcode_*.app 2>/dev/null | sort -V | tail -1 || true)
+          sudo xcode-select -s "${LATEST:-/Applications/Xcode.app}"
+          xcodebuild -version
 
       - name: Trust mise config
         run: mise trust --yes
@@ -133,7 +137,11 @@ jobs:
         run: brew install nasm mise
 
       - name: Select Xcode
-        run: sudo xcode-select -s /Applications/Xcode.app
+        run: |
+          set -euo pipefail
+          LATEST=$(ls -d /Applications/Xcode_*.app 2>/dev/null | sort -V | tail -1 || true)
+          sudo xcode-select -s "${LATEST:-/Applications/Xcode.app}"
+          xcodebuild -version
 
       - name: Trust mise config
         run: mise trust --yes
@@ -229,7 +237,7 @@ jobs:
 
   release:
     name: Create tvOS GitHub Release
-    needs: build
+    needs: [build, device]
     if: github.event_name == 'push' && github.ref_name == 'apple-tv' && needs.build.outputs.version_changed == 'true'
     runs-on: macos-15
     permissions:
@@ -239,11 +247,13 @@ jobs:
         with:
           submodules: recursive
 
-      - name: Download build artifact
+      - name: Download build artifacts
+        # No name: downloads ALL artifacts of this run (the signed .ipa and the
+        # simulator .zip). merge-multiple flattens them into ./dist.
         uses: actions/download-artifact@v6
         with:
-          name: RRRevoloution-tvOS-${{ needs.build.outputs.version }}-${{ github.sha }}
           path: ./dist
+          merge-multiple: true
 
       - name: Create GitHub Release
         env:
