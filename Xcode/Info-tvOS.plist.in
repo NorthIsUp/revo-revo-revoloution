@@ -52,5 +52,10 @@
     <true/>
     <key>LSSupportsOpeningDocumentsInPlace</key>
     <true/>
+    <!-- The app uses only standard/exempt encryption (HTTPS/TLS), so declare
+         export-compliance up front; otherwise every TestFlight build is gated
+         on a manual "Missing Compliance" answer before testers can install. -->
+    <key>ITSAppUsesNonExemptEncryption</key>
+    <false/>
   </dict>
 </plist>
