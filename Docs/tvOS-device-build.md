@@ -53,21 +53,41 @@ Add these to the repo (`gh secret set <NAME> --repo NorthIsUp/revo-revo-revolout
 | Secret | Value |
 |---|---|
 | `TVOS_DEV_TEAM` | `4BJBDQVY6M` |
-| `ASC_KEY_ID` | the Key ID from step 4 |
-| `ASC_ISSUER_ID` | the Issuer ID from step 4 |
-| `ASC_KEY_P8` | base64 of the `.p8`: `base64 -i AuthKey_<KEYID>.p8 \| pbcopy` |
+| `ASC_KEY_ID` | the **Admin** key's Key ID (`238ATU74S4`) |
+| `ASC_ISSUER_ID` | the Issuer ID (shared by all keys) |
+| `ASC_KEY_P8` | base64 of the Admin `.p8`: `base64 -i AuthKey_<KEYID>.p8` |
+| `DIST_CERT_P12` | base64 of the Apple Distribution `.p12` |
+| `DIST_CERT_PASSWORD` | the `.p12` export password |
+| `APP_STORE_PROFILE` | base64 of the `TVOS_APP_STORE` `.mobileprovision` |
 
-Once set, the **device** CI job archives + exports a signed `.ipa` on every push
-to `apple-tv` (and uploads it as an artifact). On a version bump
-(`CMake/SMDefs.cmake`) it also uploads to **TestFlight**. Trigger a manual run
-any time from the Actions tab (the workflow has `workflow_dispatch`).
+Once set, the **device** CI job imports the distribution cert + profile, archives,
+and exports a signed `.ipa` on every push to `apple-tv` (uploaded as an artifact).
+On a version bump (`CMake/SMDefs.cmake`) it also uploads to **TestFlight**. Trigger
+a manual run any time from the Actions tab (the workflow has `workflow_dispatch`).
+
+## Distribution signing (why it's manual)
+
+App Store / TestFlight needs an **Apple Distribution** certificate + an **App
+Store provisioning profile**. `xcodebuild -exportArchive` cannot *cloud-create*
+those headlessly (it fails with `Cloud signing permission error` even with an
+Admin key), so we pre-create them once and CI imports them:
+
+- The ASC API key must be **Admin** (App Manager can't create a distribution cert).
+- The cert (`Apple Distribution`, id `4N5BSMD323`) + profile (`RRRevoloution tvOS
+  App Store`) were created via the API; the `.p8` keys, the `.p12` (with the only
+  copy of the distribution private key), and the `.mobileprovision` are stored in
+  1Password (personal → Private → "RRRevoloution tvOS — Apple code signing (CI)").
+- To recreate if lost: generate a keypair + CSR, `POST /v1/certificates`
+  (`DISTRIBUTION`) and `POST /v1/profiles` (`TVOS_APP_STORE`) with the Admin key,
+  then re-set `DIST_CERT_P12` / `DIST_CERT_PASSWORD` / `APP_STORE_PROFILE`.
 
 ## Notes
 
 - TestFlight build numbers must be unique; CI only uploads on a version bump for
   that reason. Bump `SM_VERSION_*` in `CMake/SMDefs.cmake` to ship a new build.
 - Locally, `xcodebuild` uses your Xcode-cached Apple ID; the API key is only
-  required for `tvos:upload`. In CI the key drives both signing
-  (`-allowProvisioningUpdates`) and upload.
+  required for `tvos:upload`. In CI the API key drives the *archive's* automatic
+  development signing (`-allowProvisioningUpdates`) and the TestFlight upload; the
+  *export* re-signs with the imported Apple Distribution cert + profile (manual).
 - Internal TestFlight testers install over the air on any Apple TV signed into
   their Apple ID — no UDID registration or cable needed.

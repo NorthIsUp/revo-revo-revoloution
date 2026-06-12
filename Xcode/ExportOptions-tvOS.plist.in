@@ -2,7 +2,12 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <!-- Template consumed by `mise run tvos:export`, which substitutes __TEAM_ID__
      with $TVOS_DEV_TEAM and writes the result into the device build dir.
-     method=app-store-connect produces a TestFlight/App Store .ipa. -->
+     method=app-store-connect produces a TestFlight/App Store .ipa.
+
+     MANUAL signing: xcodebuild can't cloud-create an App Store distribution
+     cert/profile headlessly, so CI imports a pre-made Apple Distribution cert
+     (.p12) into a keychain and installs the "RRRevoloution tvOS App Store"
+     provisioning profile before export. -->
 <plist version="1.0">
   <dict>
     <key>method</key>
@@ -10,7 +15,14 @@
     <key>teamID</key>
     <string>__TEAM_ID__</string>
     <key>signingStyle</key>
-    <string>automatic</string>
+    <string>manual</string>
+    <key>signingCertificate</key>
+    <string>Apple Distribution</string>
+    <key>provisioningProfiles</key>
+    <dict>
+      <key>com.northisup.rererevoloution</key>
+      <string>RRRevoloution tvOS App Store</string>
+    </dict>
     <!-- export the .ipa to disk; uploading to TestFlight is a separate,
          explicit step (`mise run tvos:upload`) so the .ipa is also kept as
          a CI artifact / GitHub release asset. -->
