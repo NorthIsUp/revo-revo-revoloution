@@ -4,7 +4,12 @@
 #MISE alias="tvos:sim"
 set -euo pipefail
 
-SIM_ID=$(xcrun simctl list devices available | grep "$TVOS_SIM_DEVICE" | head -1 | grep -oE '[0-9A-F-]{36}')
+# An older runtime installed alongside the current one has a device by the
+# same name that xcodebuild won't build against, so match the name exactly and
+# take the newest — simctl lists runtimes oldest-first.
+SIM_ID=$(xcrun simctl list devices available \
+  | awk -v n="$TVOS_SIM_DEVICE" '{ l=$0; sub(/^ +/, "", l); if (index(l, n " (") == 1) print l }' \
+  | tail -1 | grep -oE '[0-9A-F-]{36}')
 
 # Boot simulator if needed
 STATE=$(xcrun simctl list devices | grep "$SIM_ID" | grep -o '(Booted)') || true

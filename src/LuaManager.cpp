@@ -1039,7 +1039,7 @@ void LuaHelpers::PushValueFunc(lua_State* L, int iArgs) {
 }
 
 #include "ProductInfo.h"
-LuaFunction(ProductFamily, (std::string)PRODUCT_FAMILY);
+LuaFunction(ProductFamily, (std::string)PRODUCT_ENGINE_FAMILY);
 LuaFunction(ProductVersion, (std::string)product_version);
 LuaFunction(ProductID, (std::string)PRODUCT_ID);
 
