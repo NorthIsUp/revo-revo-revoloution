@@ -112,14 +112,24 @@ was understood; keep it so nobody repeats the search.
 The TV cannot read iCloud Drive, but a Mac can, so sync from the Mac side:
 
 ```
-./Utils/push-songs.py ~/Library/Mobile\ Documents/com~apple~CloudDocs/RRRevoloution/Songs 10.0.1.23
+mise run tvos:push-songs
+```
+
+Set these once in `.mise.local.toml` and that is the whole command:
+
+```toml
+TVOS_HOST      = "10.0.1.23"   # the address the TV prints at startup
+TVOS_SONGS_SRC = "~/Library/Mobile Documents/com~apple~CloudDocs/RRRevoloution/Songs"
 ```
 
 Point it at any `Songs/`-shaped folder (`<group>/<song>/`) — put that folder in
 iCloud Drive and every device you own keeps it current for free. It posts one
 request per song to the TV's upload server, and the server merges, so re-running
-sends only what is new (`0 sent, 12 already present`). The IP is the one the TV
-prints on screen at boot. Then Options → Reload Songs.
+sends only what is new (`0 sent, 12 already present`), which makes it safe to
+run habitually. Then Options → Reload Songs on the TV.
+
+`./Utils/push-songs.py <songs-dir> <host>` is the same thing without mise, and
+takes `--target Themes|NoteSkins|Courses` for the other mounted directories.
 
 Consequences for this port:
 
