@@ -102,13 +102,34 @@ back to the sandbox, and on tvOS that directory is unreachable — the app looks
 permanently empty with no way to add songs.
 
 The App ID capability is already `ICLOUD` / `ICLOUD_VERSION=XCODE_6` with the
-container attached. A profile freshly minted through `POST /v1/profiles` still
-comes back `CloudKit`-only, and `XCODE_5` is worse (it drops the container
-identifiers entirely, leaving only the kv-store). So this is not fixable from
-the App Store Connect API alone: get the profile from **Xcode-managed signing**,
-which asks for the services the app actually declares — archive once with
-automatic signing, or run the archive with `-allowProvisioningUpdates` and an
-Admin key — then export that profile into `APP_STORE_PROFILE`.
+container attached, and neither signing route fixes it:
+
+- a profile freshly minted through `POST /v1/profiles` comes back
+  `CloudKit`-only, and `XCODE_5` is worse (it drops the container identifiers
+  entirely, leaving only the kv-store);
+- **Xcode-managed signing does not help either.** An archive run with
+  `-allowProvisioningUpdates` and the Admin key signs against "tvOS Team
+  Provisioning Profile" with no warning, and the entitlements Xcode *requested*
+  come out as just `application-identifier`, `team-identifier` and
+  `icloud-container-identifiers`.
+
+That last one is the tell, and it is worth checking before suspecting the build:
+
+```
+plutil -p build-tvos-device/build/RRRevoloution.build/Release-appletvos/RRRevoloution.app.xcent
+```
+
+`src/CMakeLists.txt:218` does point `CODE_SIGN_ENTITLEMENTS` at
+`Xcode/RRRevoloution-tvOS.entitlements`, and the generated project carries the
+right absolute path — Xcode reads the file and then silently drops every key the
+App ID cannot grant. So the app never asks for `CloudDocuments` and iCloud Drive
+cannot work no matter how the profile is generated.
+
+What is left is the one thing the API cannot express: on
+developer.apple.com/account → Identifiers → `com.northisup.rererevoloution` →
+**iCloud**, enable *iCloud Documents* and confirm
+`iCloud.com.northisup.rererevoloution` is checked. Then regenerate the profile
+and re-check the `.xcent` above for `CloudDocuments` before shipping.
 
 Whatever route, verify by entitlements, never by the profile's name:
 
