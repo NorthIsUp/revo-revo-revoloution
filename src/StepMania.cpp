@@ -1041,6 +1041,14 @@ int sm_main(int argc, char* argv[]) {
     SCREENMAN->SystemMessage(sMessage);
   }
 
+  // A console has no filesystem the player can browse, so where content lives
+  // (and how to add some) only exists if it is said on screen. Empty
+  // everywhere but tvOS.
+  std::string sStorage = HOOKS->GetContentStorageStatus();
+  if (!sStorage.empty()) {
+    SCREENMAN->SystemMessage(sStorage);
+  }
+
   CodeDetector::RefreshCacheItems();
 
   // Run the main loop.

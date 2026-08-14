@@ -1,0 +1,27 @@
+#!/usr/bin/env zsh
+#MISE description="Push songs from an iCloud Drive folder to the Apple TV"
+set -euo pipefail
+
+# tvOS cannot read iCloud Drive itself (Docs/tvOS-device-build.md), so the Mac
+# pushes instead. Set these once in .mise.local.toml to make this a bare
+# `mise run tvos:push-songs`:
+#   TVOS_HOST      = "10.0.1.23"     # the URL the TV shows at boot
+#   TVOS_SONGS_SRC = "~/Library/Mobile Documents/com~apple~CloudDocs/RRRevoloution/Songs"
+SRC="${1:-${TVOS_SONGS_SRC:-$HOME/Library/Mobile Documents/com~apple~CloudDocs/RRRevoloution/Songs}}"
+HOST="${2:-${TVOS_HOST:-}}"
+
+if [ -z "$HOST" ]; then
+  echo "Error: no Apple TV host. Pass it, or set TVOS_HOST in .mise.local.toml:"
+  echo "  mise run tvos:push-songs '<songs-dir>' 10.0.1.23"
+  echo "The address is printed on the TV at startup."
+  exit 1
+fi
+
+if [ ! -d "$SRC" ]; then
+  echo "Error: '$SRC' is not a directory."
+  echo "Make it a Songs/-shaped folder (<group>/<song>/) inside iCloud Drive,"
+  echo "then every device you own keeps it up to date for free."
+  exit 1
+fi
+
+exec ./Utils/push-songs.py "$SRC" "$HOST"

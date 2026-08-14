@@ -22,6 +22,18 @@
 #define PRODUCT_FAMILY PRODUCT_XSTRINGIFY(PRODUCT_FAMILY_BARE)
 #define PRODUCT_ID PRODUCT_XSTRINGIFY(PRODUCT_ID_BARE)
 
+/**
+ * @brief The engine lineage themes gate their feature checks on, as opposed to
+ * this build's branding.
+ *
+ * Simply Love's StepManiaVersionIsSupported() refuses to run unless Lua's
+ * ProductFamily() answers "ITGmania", and on a mismatch ScreenInit bounces the
+ * player into the operator menu with an "unsupported version" message. This
+ * fork is ITGmania-derived, so that is the truthful answer; PRODUCT_FAMILY
+ * keeps the fork's name for window titles and crash reports.
+ */
+#define PRODUCT_ENGINE_FAMILY "ITGmania"
+
 #define VIDEO_TROUBLESHOOTING_URL \
   "http://old.stepmania.com/"     \
   "stepmaniawiki.php?title=Video_Driver_Troubleshooting"

@@ -11,4 +11,8 @@ void UploadServer_Start(const std::string& documentsPath);
 /** Stop the embedded HTTP upload server (tvOS only). */
 void UploadServer_Stop();
 
+/** The "http://<lan-ip>:<port>" the user should visit, or empty if the server
+ *  is not running or has no LAN address. */
+std::string UploadServer_GetURL();
+
 #endif

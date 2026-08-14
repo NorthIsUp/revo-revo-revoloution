@@ -2,7 +2,9 @@
 #MISE description="Take a screenshot of the tvOS simulator"
 set -euo pipefail
 
-SIM_ID=$(xcrun simctl list devices available | grep "$TVOS_SIM_DEVICE" | head -1 | grep -oE '[0-9A-F-]{36}')
+SIM_ID=$(xcrun simctl list devices available \
+  | awk -v n="$TVOS_SIM_DEVICE" '{ l=$0; sub(/^ +/, "", l); if (index(l, n " (") == 1) print l }' \
+  | tail -1 | grep -oE '[0-9A-F-]{36}')
 OUT="${1:-screenshot-tvos.png}"
 xcrun simctl io "$SIM_ID" screenshot "$OUT"
 echo "Saved to $OUT"

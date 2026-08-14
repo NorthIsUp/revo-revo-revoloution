@@ -4,12 +4,11 @@
 #MISE sources=["src/**/*", "extern/**/*"]
 #MISE outputs=["{{env.TVOS_APP}}/RRRevoloution-debug"]
 set -euo pipefail
-SIM_ID=$(xcrun simctl list devices available | grep "$TVOS_SIM_DEVICE" | head -1 | grep -oE '[0-9A-F-]{36}')
-if [ -z "$SIM_ID" ]; then
-  echo "Error: no available simulator matching '$TVOS_SIM_DEVICE'"
-  exit 1
-fi
+# Address the simulator by name, not UDID: an older runtime still installed
+# alongside the current one also has a device by this name, and xcodebuild
+# rejects it as ineligible ("tvOS <version> is not installed"). By name,
+# xcodebuild picks the newest runtime it can actually build against.
 xcodebuild -project "$TVOS_BUILD_DIR/StepMania.xcodeproj" \
   -scheme RRRevoloution \
-  -destination "platform=tvOS Simulator,id=$SIM_ID" \
+  -destination "platform=tvOS Simulator,name=$TVOS_SIM_DEVICE" \
   build
