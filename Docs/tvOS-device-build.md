@@ -125,11 +125,25 @@ right absolute path — Xcode reads the file and then silently drops every key t
 App ID cannot grant. So the app never asks for `CloudDocuments` and iCloud Drive
 cannot work no matter how the profile is generated.
 
-What is left is the one thing the API cannot express: on
-developer.apple.com/account → Identifiers → `com.northisup.rererevoloution` →
-**iCloud**, enable *iCloud Documents* and confirm
-`iCloud.com.northisup.rererevoloution` is checked. Then regenerate the profile
-and re-check the `.xcent` above for `CloudDocuments` before shipping.
+Things that were tried and did **not** work, so nobody repeats them:
+
+- deleting the `ICLOUD` capability and POSTing a fresh one — still `CloudKit`;
+- dropping the legacy `ubiquity-container-identifiers` key from the
+  entitlements, on the theory that one unsatisfiable key was poisoning the whole
+  iCloud set — `icloud-services` is still pruned, so Xcode prunes per key and
+  the value mismatch (`CloudDocuments` requested, `CloudKit` granted) is the
+  whole story;
+- `GET /v1/cloudContainers` and friends — 404; the API has no container
+  resource at all.
+
+The App ID page itself has no per-service toggle: the radio picks the
+entitlement era ("requires Xcode 6" is Apple's 2014 label for the modern one —
+keep it), and **Edit** only assigns containers. Which services an App ID
+supports is registered by **Xcode.app's** Signing & Capabilities editor, through
+a portal integration the public API does not expose. So: open the target in
+Xcode once, add the **iCloud** capability with *iCloud Documents* ticked and the
+container selected, and let it register. Afterwards an API-generated profile
+picks the service up and CI can go back to manual signing unchanged.
 
 Whatever route, verify by entitlements, never by the profile's name:
 
