@@ -485,8 +485,10 @@ static std::string UserDocumentsRoot(bool* outUsingICloud) {
   if (usingICloud) {
     g_sContentStorage = "icloud";
   } else if (wantICloud) {
-    /* Asked for iCloud and did not get it: the container is missing from the
-     * signing entitlements, or the box is not signed in to iCloud. */
+    /* Asked for iCloud and did not get it: either the box is not signed in, or
+     * the build's entitlements are short iCloud Documents. Do not try to tell
+     * those apart here -- -ubiquityIdentityToken blocks, and this runs twice on
+     * the boot path (mount, then the upload server), which hangs startup. */
     g_sContentStorage = "unavailable";
   } else {
     g_sContentStorage = "disabled";
@@ -605,11 +607,10 @@ std::string ArchHooks_tvOS::GetContentStorageStatus() const {
   if (g_sContentStorage == "icloud") {
     sWhere = "Songs: iCloud Drive \xE2\x86\x92 " PRODUCT_ID " \xE2\x86\x92 Songs";
   } else if (g_sContentStorage == "unavailable") {
-    /* Nothing the player does on the TV can fix this one, so name the two
-     * causes rather than just reporting the symptom. */
     sWhere =
-        "iCloud Drive unavailable (not signed in, or the app is missing the "
-        "iCloud entitlement) \xE2\x80\x94 songs are stored on this device only";
+        "iCloud Drive unavailable (not signed in, or the build is missing the "
+        "iCloud Documents entitlement) \xE2\x80\x94 songs are stored on this "
+        "device only";
   } else {
     sWhere = "iCloud Drive off \xE2\x80\x94 songs are stored on this device only";
   }
