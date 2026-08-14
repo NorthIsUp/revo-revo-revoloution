@@ -108,17 +108,30 @@ static NSString* SanitizePathComponent(NSString* segment) {
   return safe.length > 0 ? safe : nil;
 }
 
-/** Sanitize filename: no path components, no "..", only safe chars. */
-static NSString* SanitizeFileName(NSString* fileName) {
-  NSString* base = [fileName lastPathComponent];
-  if (base.length == 0) {
-    return @"upload";
+/**
+ * Sanitize an uploaded relative path ("My Pack/A Song/song.sm") one component
+ * at a time, keeping the folder structure.
+ *
+ * A song is a directory, not a file: the engine finds charts as
+ * Songs/<group>/<song>/, and its .sm metadata refers to sibling audio and
+ * banners by name. Flattening an upload into Songs/ therefore transfers every
+ * byte and still yields nothing playable. Spaces survive too, since pack and
+ * song directories are full of them.
+ *
+ * Returns nil when no component survives.
+ */
+static NSString* SanitizeRelativePath(NSString* path) {
+  NSMutableArray<NSString*>* safe = [NSMutableArray array];
+  for (NSString* segment in [path componentsSeparatedByString:@"/"]) {
+    NSString* clean = SanitizePathComponent(segment);
+    if (clean != nil) {
+      [safe addObject:clean];
+    }
   }
-  NSCharacterSet* unsafe = [[NSCharacterSet
-      characterSetWithCharactersInString:
-          @"abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789._-"] invertedSet];
-  NSArray<NSString*>* parts = [base componentsSeparatedByCharactersInSet:unsafe];
-  return [parts componentsJoinedByString:@""] ?: @"upload";
+  if (safe.count == 0) {
+    return nil;
+  }
+  return [safe componentsJoinedByString:@"/"];
 }
 
 static NSString* UploadHTML(void) {
@@ -171,7 +184,8 @@ static NSString* UploadHTML(void) {
           @"the current contents with the new folder</label>"
           @"<label class=\"radio\"><input type=\"radio\" name=\"overwrite\" value=\"\" checked> "
           @"Merge two folders contents</label></p>"
-          @"<p><button type=\"submit\">Upload</button></p>"
+          @"<p><button type=\"submit\">Upload</button> <span id=\"formStatus\" "
+          @"aria-live=\"polite\"></span></p>"
           @"</form>"
           @"<script>"
           @"function handleDrop(e,target){e.preventDefault();e.stopPropagation();var "
@@ -183,7 +197,8 @@ static NSString* UploadHTML(void) {
           @"var fd=new "
           @"FormData();fd.append('target',target);fd.append('overwrite',(document.querySelector('["
           @"name=overwrite]:checked')&&document.querySelector('[name=overwrite]:checked').value)||'"
-          @"');for(var i=0;i<files.length;i++)fd.append('files',files[i]);"
+          @"');for(var i=0;i<files.length;i++)fd.append('files',files[i],files[i]."
+          @"webkitRelativePath||files[i].name);"
           @"fetch('/"
           @"upload',{method:'POST',body:fd}).then(r=>r.text()).then(function(t){zone.classList."
           @"remove('uploading');var status=zone.querySelector('.dropzone-status');"
@@ -193,6 +208,24 @@ static NSString* UploadHTML(void) {
           @"Error')>=0)?(t.replace(/<[^>]*>/g,'').trim().slice(0,150)):'Upload failed.';}"
           @"}).catch(function(err){zone.classList.remove('uploading');zone.classList.add('error');"
           @"zone.querySelector('.dropzone-status').textContent='Error: '+err.message;});}"
+          /* A native form POST sends bare basenames -- webkitRelativePath is a
+             JS-only property -- so the folder the user picked would arrive
+             flattened. Send it ourselves instead. */
+          @"document.getElementById('uploadForm').addEventListener('submit',function(e){"
+          @"e.preventDefault();var files=document.getElementById('files').files;"
+          @"var out=document.getElementById('formStatus');"
+          @"if(!files.length){out.textContent='Choose a folder first.';return;}"
+          @"out.textContent='Uploading '+files.length+' file(s)...';"
+          @"var fd=new FormData();fd.append('target',document.getElementById('target').value);"
+          @"fd.append('overwrite',(document.querySelector('[name=overwrite]:checked')&&document."
+          @"querySelector('[name=overwrite]:checked').value)||'');"
+          @"for(var i=0;i<files.length;i++)fd.append('files',files[i],files[i].webkitRelativePath||"
+          @"files[i].name);"
+          @"fetch('/upload',{method:'POST',body:fd}).then(r=>r.text()).then(function(t){"
+          @"var n=(t.match(/Saved (\\d+)/)||[])[1];"
+          @"out.textContent=n?('Saved '+n+' file(s). Reload songs on the TV to see them.'):"
+          @"t.replace(/<[^>]*>/g,'').trim().slice(0,150);"
+          @"}).catch(function(err){out.textContent='Error: '+err.message;});});"
           @"</script></body></html>",
           tabs];
 }
@@ -263,14 +296,35 @@ static void StartServerOnMainQueue(void) {
                  overwrite = YES;
                }
                NSMutableArray<NSString*>* saved = [NSMutableArray array];
+               NSString* resolvedTarget =
+                   [[targetDir stringByStandardizingPath] stringByAppendingString:@"/"];
                for (GCDWebServerMultiPartFile* file in request.files) {
-                 NSString* safeName = SanitizeFileName(file.fileName);
+                 NSString* safeName = SanitizeRelativePath(file.fileName);
                  if (safeName.length == 0) {
                    continue;
                  }
                  NSString* destPath = [targetDir stringByAppendingPathComponent:safeName];
+                 /* Belt and braces: the per-component sanitize already drops
+                  * "..", so a path escaping the target means a bug here, not a
+                  * request to honor. */
+                 if (![[destPath stringByStandardizingPath] hasPrefix:resolvedTarget]) {
+                   LOG->Warn(
+                       "Upload server: rejected '%s' (escapes %s)", file.fileName.UTF8String,
+                       target.UTF8String);
+                   continue;
+                 }
                  if (!overwrite && [fm fileExistsAtPath:destPath]) {
                    continue;  // deep merge: only new files
+                 }
+                 NSError* mkErr = nil;
+                 if (![fm createDirectoryAtPath:[destPath stringByDeletingLastPathComponent]
+                         withIntermediateDirectories:YES
+                                          attributes:nil
+                                               error:&mkErr]) {
+                   LOG->Warn(
+                       "Upload server: could not create '%s': %s", destPath.UTF8String,
+                       mkErr.localizedDescription.UTF8String);
+                   continue;
                  }
                  NSError* err = nil;
                  if (overwrite && [fm removeItemAtPath:destPath error:nil]) {
