@@ -81,6 +81,46 @@ Admin key), so we pre-create them once and CI imports them:
   (`DISTRIBUTION`) and `POST /v1/profiles` (`TVOS_APP_STORE`) with the Admin key,
   then re-set `DIST_CERT_P12` / `DIST_CERT_PASSWORD` / `APP_STORE_PROFILE`.
 
+## iCloud Drive needs `CloudDocuments`, and API-made profiles do not grant it
+
+The v1.2.4 build on TestFlight shipped with these entitlements — note what is
+*missing*, and check yours the same way before blaming the app:
+
+```
+codesign -d --entitlements :- Payload/RRRevoloution.app
+  com.apple.developer.icloud-container-identifiers = [iCloud.com.northisup.rererevoloution]
+  # ...and nothing else iCloud-related
+```
+
+`com.apple.developer.icloud-services` (`CloudDocuments`) and
+`com.apple.developer.ubiquity-container-identifiers` were both requested by
+`Xcode/RRRevoloution-tvOS.entitlements` and both dropped at re-sign, because
+codesign keeps only what the profile grants. The profile grants
+`icloud-services = [CloudKit]`. Without `CloudDocuments`,
+`URLForUbiquityContainerIdentifier:` returns nil, `UserDocumentsRoot()` falls
+back to the sandbox, and on tvOS that directory is unreachable — the app looks
+permanently empty with no way to add songs.
+
+The App ID capability is already `ICLOUD` / `ICLOUD_VERSION=XCODE_6` with the
+container attached. A profile freshly minted through `POST /v1/profiles` still
+comes back `CloudKit`-only, and `XCODE_5` is worse (it drops the container
+identifiers entirely, leaving only the kv-store). So this is not fixable from
+the App Store Connect API alone: get the profile from **Xcode-managed signing**,
+which asks for the services the app actually declares — archive once with
+automatic signing, or run the archive with `-allowProvisioningUpdates` and an
+Admin key — then export that profile into `APP_STORE_PROFILE`.
+
+Whatever route, verify by entitlements, never by the profile's name:
+
+```
+mise run tvos:export
+codesign -d --entitlements :- build-tvos-device/export/*.ipa  # want CloudDocuments
+```
+
+Changing the App ID's capabilities invalidates every existing profile
+(`profileState: INVALID`), including the one in `APP_STORE_PROFILE` — regenerate
+and re-set the secret in the same sitting or the next CI run fails to export.
+
 ## Notes
 
 - TestFlight build numbers must be unique; CI only uploads on a version bump for
