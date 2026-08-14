@@ -107,6 +107,20 @@ the call compiles and simply returns nil forever, which is exactly what the app
 sees. Everything below is the paper trail of chasing that nil before the cause
 was understood; keep it so nobody repeats the search.
 
+### Getting songs onto the box anyway
+
+The TV cannot read iCloud Drive, but a Mac can, so sync from the Mac side:
+
+```
+./Utils/push-songs.py ~/Library/Mobile\ Documents/com~apple~CloudDocs/RRRevoloution/Songs 10.0.1.23
+```
+
+Point it at any `Songs/`-shaped folder (`<group>/<song>/`) — put that folder in
+iCloud Drive and every device you own keeps it current for free. It posts one
+request per song to the TV's upload server, and the server merges, so re-running
+sends only what is new (`0 sent, 12 already present`). The IP is the one the TV
+prints on screen at boot. Then Options → Reload Songs.
+
 Consequences for this port:
 
 - `UserDocumentsRoot()` always falls back to the sandbox on device. That is
