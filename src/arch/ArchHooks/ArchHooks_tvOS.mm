@@ -457,6 +457,11 @@ static void CoordinatedCreateDirectory(NSFileManager* fm, NSURL* dirURL) {
   }
 }
 
+/* Set once during MountUserFilesystems, read later to tell the player where
+ * content goes. The sandbox fallback is a dead end on tvOS -- nothing can reach
+ * that directory -- so it has to be said out loud rather than logged. */
+static std::string g_sContentStorage;
+
 // Resolves the user-content Documents root shared by the game mount and the
 // upload server, so the two never diverge. Honors the ITGmaniaUseICloud toggle
 // (default-on) and falls back to the local sandbox when iCloud is unavailable.
@@ -476,6 +481,15 @@ static std::string UserDocumentsRoot(bool* outUsingICloud) {
   }
   if (docsDir.empty()) {
     docsDir = PathForDirectory(NSDocumentDirectory);
+  }
+  if (usingICloud) {
+    g_sContentStorage = "icloud";
+  } else if (wantICloud) {
+    /* Asked for iCloud and did not get it: the container is missing from the
+     * signing entitlements, or the box is not signed in to iCloud. */
+    g_sContentStorage = "unavailable";
+  } else {
+    g_sContentStorage = "disabled";
   }
   if (outUsingICloud != nullptr) {
     *outUsingICloud = usingICloud;
@@ -565,6 +579,28 @@ void ArchHooks_tvOS::StartUploadServer() {
   // cached container URL) so uploads land where the game reads from.
   std::string docsPath = UserDocumentsRoot(nullptr);
   UploadServer_Start(docsPath);
+}
+
+std::string ArchHooks_tvOS::GetContentStorageStatus() const {
+  std::string sUpload = UploadServer_GetURL();
+  std::string sWhere;
+
+  if (g_sContentStorage == "icloud") {
+    sWhere = "Songs: iCloud Drive \xE2\x86\x92 " PRODUCT_ID " \xE2\x86\x92 Songs";
+  } else if (g_sContentStorage == "unavailable") {
+    /* Nothing the player does on the TV can fix this one, so name the two
+     * causes rather than just reporting the symptom. */
+    sWhere =
+        "iCloud Drive unavailable (not signed in, or the app is missing the "
+        "iCloud entitlement) \xE2\x80\x94 songs are stored on this device only";
+  } else {
+    sWhere = "iCloud Drive off \xE2\x80\x94 songs are stored on this device only";
+  }
+
+  if (!sUpload.empty()) {
+    sWhere += ".  Add songs from a browser: " + sUpload;
+  }
+  return sWhere;
 }
 
 std::string ArchHooks_tvOS::GetAppSetting(const std::string& key) const {

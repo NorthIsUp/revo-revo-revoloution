@@ -128,6 +128,17 @@ class ArchHooks {
   virtual void StartUploadServer() {}
 
   /**
+   * @brief Where user content lives and how to add more, for display on screen.
+   *
+   * On a console there is no filesystem the player can reach, so if content
+   * storage silently lands somewhere unusable -- an unprovisioned iCloud
+   * container falling back to the sandbox, say -- the app just looks empty
+   * forever. Returning a non-empty string here puts the answer in front of
+   * them. Empty means "nothing worth saying" (every desktop platform).
+   */
+  virtual std::string GetContentStorageStatus() const { return std::string(); }
+
+  /**
    * @brief Optional override for a preference from system/app settings (e.g. Settings.bundle on tvOS).
    * Known keys: ITGmaniaThemeReset (toggle: reset theme on next launch).
    * @param key Setting key. Use empty to mean "not set".

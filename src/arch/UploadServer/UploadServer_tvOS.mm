@@ -5,6 +5,7 @@
  */
 
 #include "UploadServer_tvOS.h"
+#include <atomic>
 #include <string>
 #include "RageLog.h"
 #include "global.h"
@@ -24,6 +25,10 @@ static NSString* s_documentsPath =
     nil;  // app Documents dir; same path mounted at /Songs, /Themes, etc.
 static GCDWebServer* s_server = nil;
 static BOOL s_startScheduled = NO;
+/* Read from the game thread via UploadServer_GetURL() while the server starts
+ * on the main queue. */
+static std::atomic<bool> s_urlReady{false};
+static NSString* s_url = nil;
 
 /** Return first non-loopback IPv4 address as string, or empty if none. */
 static NSString* GetLANIPAddress(void) {
@@ -393,7 +398,9 @@ static void StartServerOnMainQueue(void) {
   }
   NSString* ip = GetLANIPAddress();
   if (ip.length > 0) {
-    LOG->Info("Upload at http://%s:%lu", ip.UTF8String, (unsigned long)kUploadPort);
+    s_url = [NSString stringWithFormat:@"http://%@:%lu", ip, (unsigned long)kUploadPort];
+    s_urlReady = true;
+    LOG->Info("Upload at %s", s_url.UTF8String);
   } else {
     LOG->Info("Upload server running on port %lu", (unsigned long)kUploadPort);
   }
@@ -426,4 +433,12 @@ void UploadServer_Stop(void) {
     [s_server stop];
     s_server = nil;
   }
+  s_urlReady = false;
+}
+
+std::string UploadServer_GetURL(void) {
+  if (!s_urlReady) {
+    return std::string();
+  }
+  return std::string(s_url.UTF8String);
 }
