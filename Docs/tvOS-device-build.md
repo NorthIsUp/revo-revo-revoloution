@@ -81,7 +81,45 @@ Admin key), so we pre-create them once and CI imports them:
   (`DISTRIBUTION`) and `POST /v1/profiles` (`TVOS_APP_STORE`) with the Admin key,
   then re-set `DIST_CERT_P12` / `DIST_CERT_PASSWORD` / `APP_STORE_PROFILE`.
 
-## iCloud Drive needs `CloudDocuments`, and API-made profiles do not grant it
+## iCloud Drive does not exist on tvOS — stop trying to make it work
+
+**Apple does not offer iCloud Drive documents to tvOS apps** — still true on
+tvOS 26 / Xcode 26.6, so this is not a version we can wait out. Apple's own
+capability database, shipped inside Xcode, spells it out:
+
+```
+/Applications/Xcode.app/Contents/SharedFrameworks/DVTPortal.framework/
+  Versions/A/Resources/DVTPortalCachedPortalCapabilities.json   → capability ICLOUD
+
+  ubiquity-container-identifiers  supportedSDKs: IOS, MAC_OS, VISION_OS, WATCH_OS
+  icloud-services "CloudDocuments" supportedSDKs: IOS, MAC_OS, VISION_OS, WATCH_OS
+  icloud-services "CloudKit"       (unrestricted)
+```
+
+`TV_OS` appears in the capability's own `supportedSDKs` — which is why iCloud can
+be switched on for the App ID at all — but it is absent from both entitlements
+that iCloud Drive needs. Hence the profile only ever grants `CloudKit`, and
+Xcode's Signing & Capabilities editor for a tvOS target offers just **Key-value
+storage** and **CloudKit**, with no *iCloud Documents* checkbox to tick.
+
+`-URLForUbiquityContainerIdentifier:` *is* declared available on tvos(9.0), so
+the call compiles and simply returns nil forever, which is exactly what the app
+sees. Everything below is the paper trail of chasing that nil before the cause
+was understood; keep it so nobody repeats the search.
+
+Consequences for this port:
+
+- `UserDocumentsRoot()` always falls back to the sandbox on device. That is
+  fine, and not a dead end: the upload server writes into the same directory the
+  game mounts, so **the browser upload page is the supported way to load songs**.
+- The iCloud materialize / conflict-resolution work (audit H1 and H3) cannot run
+  on tvOS. It is left in place because it is harmless and would come back to
+  life behind an iOS or macOS companion, but do not budget time on it for the TV.
+- If cross-device song sync is ever wanted on the TV, CloudKit is the only
+  route Apple supports, and it is a real project: songs would have to be
+  modelled as CloudKit records and synced down into the sandbox.
+
+## Historical: iCloud Drive needs `CloudDocuments`, and API-made profiles do not grant it
 
 The v1.2.4 build on TestFlight shipped with these entitlements — note what is
 *missing*, and check yours the same way before blaming the app:

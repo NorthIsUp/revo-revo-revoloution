@@ -607,10 +607,10 @@ std::string ArchHooks_tvOS::GetContentStorageStatus() const {
   if (g_sContentStorage == "icloud") {
     sWhere = "Songs: iCloud Drive \xE2\x86\x92 " PRODUCT_ID " \xE2\x86\x92 Songs";
   } else if (g_sContentStorage == "unavailable") {
-    sWhere =
-        "iCloud Drive unavailable (not signed in, or the build is missing the "
-        "iCloud Documents entitlement) \xE2\x80\x94 songs are stored on this "
-        "device only";
+    /* Expected on Apple TV: tvOS offers iCloud key-value storage and CloudKit,
+     * not iCloud Drive documents, so the ubiquity container never resolves.
+     * Point at the thing that does work instead of implying a broken setup. */
+    sWhere = "Songs are stored on this Apple TV";
   } else {
     sWhere = "iCloud Drive off \xE2\x80\x94 songs are stored on this device only";
   }
