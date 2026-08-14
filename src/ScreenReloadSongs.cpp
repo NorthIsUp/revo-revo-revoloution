@@ -3,6 +3,7 @@
 #include <string>
 
 #include "BitmapText.h"
+#include "LocalizedString.h"
 #include "RageTimer.h"
 #include "Screen.h"
 #include "ScreenDimensions.h"
@@ -10,8 +11,11 @@
 #include "ScreenMessage.h"
 #include "SongManager.h"
 #include "ThemeManager.h"
+#include "arch/ArchHooks/ArchHooks.h"
 #include "arch/LoadingWindow/LoadingWindow.h"
 #include "global.h"
+
+static LocalizedString RELOADING_CONTENT("ScreenReloadSongs", "Checking for new content...");
 
 static const int DrawFrameRate = 20;
 class ScreenReloadSongsLoadingWindow : public LoadingWindow {
@@ -72,6 +76,11 @@ void ScreenReloadSongs::Update(float fDeltaTime) {
   }
 
   ASSERT(!IsFirstUpdate());
+
+  // Cloud-backed content may still be placeholders; pull it down before the
+  // scan looks for it. No-op off tvOS.
+  m_pLoadingWindow->SetText(RELOADING_CONTENT);
+  HOOKS->RefreshUserContent();
 
   bool onlyLoadAdditions = THEME->GetMetricB(m_sName, "OnlyLoadAdditions");
   if (onlyLoadAdditions) {

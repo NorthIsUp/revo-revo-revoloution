@@ -581,6 +581,23 @@ void ArchHooks_tvOS::StartUploadServer() {
   UploadServer_Start(docsPath);
 }
 
+void ArchHooks_tvOS::RefreshUserContent() {
+  if (g_sContentStorage != "icloud") {
+    return;
+  }
+  /* Songs dropped into iCloud Drive from another device arrive as metadata
+   * first: the rescan would list the filenames and find nothing behind them.
+   * Boot already does this once; doing it again here is what lets a pack added
+   * while the app is running show up without relaunching. */
+  NSURL* icloudDocs = ICloudDocumentsURL();
+  if (icloudDocs == nil) {
+    return;
+  }
+  LOG->Info("iCloud: downloading any new content before reload");
+  MaterializeICloudTree(icloudDocs, kICloudMaterializeTimeoutSeconds);
+  ResolveICloudConflicts(icloudDocs);
+}
+
 std::string ArchHooks_tvOS::GetContentStorageStatus() const {
   std::string sUpload = UploadServer_GetURL();
   std::string sWhere;

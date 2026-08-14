@@ -14,6 +14,7 @@ class ArchHooks_tvOS : public ArchHooks {
   std::string GetAppSetting(const std::string& key) const override;
   void SetAppSetting(const std::string& key, const std::string& value) override;
   std::string GetContentStorageStatus() const override;
+  void RefreshUserContent() override;
 };
 
 #ifdef ARCH_HOOKS

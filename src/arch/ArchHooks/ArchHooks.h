@@ -139,6 +139,15 @@ class ArchHooks {
   virtual std::string GetContentStorageStatus() const { return std::string(); }
 
   /**
+   * @brief Make externally-added user content readable before a rescan.
+   *
+   * Cloud-backed storage hands us filenames whose contents are not on disk
+   * yet, so a rescan alone would find placeholders. Called before reloading
+   * songs; no-op wherever the mounted directories are just directories.
+   */
+  virtual void RefreshUserContent() {}
+
+  /**
    * @brief Optional override for a preference from system/app settings (e.g. Settings.bundle on tvOS).
    * Known keys: ITGmaniaThemeReset (toggle: reset theme on next launch).
    * @param key Setting key. Use empty to mean "not set".
